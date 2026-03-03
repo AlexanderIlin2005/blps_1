@@ -26,7 +26,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final PaymentService paymentService;
-    private final InventoryService inventoryService;
     private final NotificationService notificationService;
 
     @Transactional
@@ -121,8 +120,6 @@ public class OrderService {
             // Отправка подтверждения
             notificationService.sendOrderConfirmation(order);
 
-            // Запуск фулфилмента
-            inventoryService.processFulfillment(order);
         } else if ("FAILED".equals(paymentResponse.getStatus())) {
             order.setPaymentStatus(PaymentStatus.FAILED);
             order.setStatus(OrderStatus.CANCELLED);

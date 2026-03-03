@@ -2,6 +2,8 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.sashil.model.Order;
@@ -20,7 +22,19 @@ public class InventoryService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
-    private final DeliveryService deliveryService;
+
+    private OrderService orderService;
+    private DeliveryService deliveryService;
+
+    @Autowired
+    public void setOrderService(@Lazy OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    @Autowired
+    public void setDeliveryService(@Lazy DeliveryService deliveryService) {
+        this.deliveryService = deliveryService;
+    }
 
     @Async
     public CompletableFuture<Void> processFulfillment(Order order) {
