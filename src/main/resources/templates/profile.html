@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Личный кабинет</h1>
+            <nav>
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/catalog">Каталог</a></li>
+                    <li><a href="/orders">Мои заказы</a></li>
+                    <li>
+                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="profile">
+            <h2>Профиль пользователя</h2>
+
+            <div class="profile-info">
+                <p><strong>Имя пользователя:</strong> <span th:text="${user.username}"></span></p>
+                <p><strong>Email:</strong> <span th:text="${user.email}"></span></p>
+                <p><strong>Полное имя:</strong> <span th:text="${user.fullName}"></span></p>
+                <p><strong>Телефон:</strong> <span th:text="${user.phone}"></span></p>
+                <p><strong>Дата регистрации:</strong> <span th:text="${#temporals.format(user.createdAt, 'dd.MM.yyyy HH:mm')}"></span></p>
+            </div>
+
+            <div class="profile-actions">
+                <a href="/orders" class="btn btn-primary">Мои заказы</a>
+                <a href="/catalog" class="btn btn-secondary">Продолжить покупки</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

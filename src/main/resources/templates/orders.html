@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои заказы</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Мои заказы</h1>
+            <nav>
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/catalog">Каталог</a></li>
+                    <li><a href="/profile">Профиль</a></li>
+                    <li>
+                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h2>История заказов</h2>
+
+        <div th:if="${#lists.isEmpty(orders)}" class="empty-state">
+            <p>У вас пока нет заказов</p>
+            <a href="/catalog" class="btn btn-primary">Перейти в каталог</a>
+        </div>
+
+        <div th:unless="${#lists.isEmpty(orders)}" class="orders-list">
+            <div th:each="order : ${orders}" class="order-card">
+                <div class="order-header">
+                    <h3>Заказ <a th:href="@{/orders/{id}(id=${order.orderNumber})}" th:text="${order.orderNumber}"></a></h3>
+                    <span class="order-date" th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                </div>
+
+                <div class="order-info">
+                    <p><strong>Статус:</strong>
+                        <span class="status-badge" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
+                    </p>
+                    <p><strong>Сумма:</strong> <span th:text="${#numbers.formatDecimal(order.total, 0, 2)} + ' ₽'"></span></p>
+                    <p><strong>Товаров:</strong> <span th:text="${#lists.size(order.items)}"></span></p>
+                </div>
+
+                <div class="order-actions">
+                    <a th:href="@{/orders/{id}(id=${order.orderNumber})}" class="btn btn-secondary">Подробнее</a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
