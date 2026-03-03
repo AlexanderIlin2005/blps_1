@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,29 +14,43 @@
                 <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <form id="checkout-form">
+        <div sec:authorize="!isAuthenticated()" class="warning-message">
+            <p>Для оформления заказа необходимо <a href="/login">войти</a> или <a href="/register">зарегистрироваться</a></p>
+        </div>
+
+        <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post">
             <div class="form-section">
                 <h3>Контактная информация</h3>
 
                 <div class="form-group">
                     <label for="customerName">ФИО *</label>
-                    <input type="text" id="customerName" name="customerName" required>
+                    <input type="text" id="customerName" name="customerName" required
+                           th:value="${#authentication.principal?.fullName}">
                 </div>
 
                 <div class="form-group">
                     <label for="customerEmail">Email *</label>
-                    <input type="email" id="customerEmail" name="customerEmail" required>
+                    <input type="email" id="customerEmail" name="customerEmail" required
+                           th:value="${#authentication.principal?.email}">
                 </div>
 
                 <div class="form-group">
                     <label for="customerPhone">Телефон *</label>
-                    <input type="tel" id="customerPhone" name="customerPhone" required>
+                    <input type="tel" id="customerPhone" name="customerPhone" required
+                           th:value="${#authentication.principal?.phone}">
                 </div>
             </div>
 
@@ -65,9 +79,9 @@
                     <div class="form-group">
                         <label for="pickupPointId">Пункт самовывоза *</label>
                         <select id="pickupPointId" name="pickupPointId">
-                            <option value="p1">МТС, ул. Тверская, 7</option>
-                            <option value="p2">МТС, пр. Мира, 26</option>
-                            <option value="p3">МТС, Ленинский пр., 68</option>
+                            <option value="p1">ул. Тверская, 7</option>
+                            <option value="p2">пр. Мира, 26</option>
+                            <option value="p3">Ленинский пр., 68</option>
                         </select>
                     </div>
                 </div>
@@ -139,7 +153,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Интернет-магазин МТС</p>
+            <p>&copy; 2026 Интернет-магазин</p>
         </div>
     </footer>
 

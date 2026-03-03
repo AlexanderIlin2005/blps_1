@@ -29,7 +29,7 @@ function displayOrderItems() {
 
     itemsHtml += '</table>';
     orderItems.innerHTML = itemsHtml;
-    orderTotal.textContent = cartTotal;
+    orderTotal.textContent = Number(cartTotal).toLocaleString();
 }
 
 // Переключение полей доставки
@@ -67,134 +67,6 @@ function togglePaymentFields() {
     }
 }
 
-// Отправка формы
-async function submitOrder(event) {
-    event.preventDefault();
-
-    const formData = new FormData(event.target);
-    const deliveryType = formData.get('deliveryType');
-
-    const orderData = {
-        customerId: 1, // Временный ID
-        customerName: formData.get('customerName'),
-        customerEmail: formData.get('customerEmail'),
-        customerPhone: formData.get('customerPhone'),
-        items: cart.map(item => ({
-            productId: item.sku,
-            productName: item.name,
-            quantity: item.quantity,
-            price: item.price
-        })),
-        deliveryType: deliveryType,
-        deliveryAddress: deliveryType === 'COURIER' ? formData.get('deliveryAddress') : null,
-        pickupPointId: deliveryType === 'PICKUP' ? formData.get('pickupPointId') : null,
-        promoCode: formData.get('promoCode')
-    };
-
-    try {
-        const response = await fetch('/api/orders', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(orderData)
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при создании заказа');
-        }
-
-        const order = await response.json();
-
-        // Переходим к оплате
-        await processPayment(order.orderNumber, formData);
-
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Произошла ошибка при оформлении заказа');
-    }
-}
-
-// Обработка платежа
-async function processPayment(orderNumber, formData) {
-    const paymentMethod = formData.get('paymentMethod');
-    let paymentDetails = {};
-
-    if (paymentMethod === 'card') {
-        paymentDetails = {
-            cardNumber: formData.get('cardNumber'),
-            cardExpiry: formData.get('cardExpiry'),
-            cardCvv: formData.get('cardCvv')
-        };
-    } else if (paymentMethod === 'sbp') {
-        paymentDetails = {
-            phoneNumber: formData.get('phoneNumber')
-        };
-    }
-
-    const paymentData = {
-        orderNumber: orderNumber,
-        paymentMethod: paymentMethod,
-        ...paymentDetails
-    };
-
-    try {
-        const response = await fetch(`/api/orders/${orderNumber}/payment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(paymentData)
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при оплате');
-        }
-
-        const order = await response.json();
-
-        // Очищаем корзину
-        localStorage.removeItem('cart');
-        localStorage.removeItem('cartTotal');
-
-        // Показываем результат
-        document.getElementById('checkout-form').style.display = 'none';
-        const resultDiv = document.getElementById('order-result');
-        resultDiv.style.display = 'block';
-        document.getElementById('result-order-number').textContent = order.orderNumber;
-        document.getElementById('result-status').textContent = getStatusText(order.status);
-        document.getElementById('result-link').href = `/order/${order.orderNumber}`;
-
-    } catch (error) {
-        console.error('Payment error:', error);
-        alert('Ошибка при оплате заказа');
-    }
-}
-
-// Получение текста статуса
-function getStatusText(status) {
-    const statusMap = {
-        'CART': 'Корзина',
-        'CHECKOUT': 'Оформление',
-        'PAYMENT_PENDING': 'Ожидание оплаты',
-        'PAYMENT_PROCESSING': 'Оплата обрабатывается',
-        'PAID': 'Оплачено',
-        'CONFIRMED': 'Подтверждено',
-        'PROCESSING': 'В обработке',
-        'PACKING': 'Сборка',
-        'READY_FOR_SHIPPING': 'Готов к отправке',
-        'SHIPPED': 'Отправлен',
-        'OUT_FOR_DELIVERY': 'У курьера',
-        'DELIVERED': 'Доставлен',
-        'PICKUP_READY': 'Готов к выдаче',
-        'PICKED_UP': 'Получен',
-        'COMPLETED': 'Завершен',
-        'CANCELLED': 'Отменен',
-        'REFUNDED': 'Возвращен'
-    };
-    return statusMap[status] || status;
-}
-
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     displayOrderItems();
@@ -207,8 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
         radio.addEventListener('change', togglePaymentFields);
     });
-
-    document.getElementById('checkout-form').addEventListener('submit', submitOrder);
 
     // Устанавливаем начальное состояние
     toggleDeliveryFields();

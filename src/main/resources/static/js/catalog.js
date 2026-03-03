@@ -57,8 +57,32 @@ function addToCart(sku, name, price) {
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartDisplay();
 
-    // Анимация
-    alert('Товар добавлен в корзину');
+    // Визуальное подтверждение
+    showNotification('Товар добавлен в корзину');
+}
+
+// Показать уведомление
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #e30613;
+        color: white;
+        padding: 1rem;
+        border-radius: 4px;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    `;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 2000);
 }
 
 // Обновление отображения корзины
@@ -66,11 +90,13 @@ function updateCartDisplay() {
     const cartItems = document.getElementById('cart-items');
     const cartTotal = document.getElementById('cart-total');
     const checkoutBtn = document.getElementById('checkout-btn');
+    const loginToCheckout = document.getElementById('login-to-checkout');
 
     if (cart.length === 0) {
         cartItems.innerHTML = '<p>Корзина пуста</p>';
         cartTotal.innerHTML = '';
-        checkoutBtn.style.display = 'none';
+        if (checkoutBtn) checkoutBtn.style.display = 'none';
+        if (loginToCheckout) loginToCheckout.style.display = 'none';
         return;
     }
 
@@ -85,12 +111,11 @@ function updateCartDisplay() {
             <div class="cart-item">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.name}</div>
-                    <div class="cart-item-price">${item.price.toLocaleString()} ₽</div>
+                    <div class="cart-item-price">${item.price.toLocaleString()} ₽ × ${item.quantity}</div>
                 </div>
                 <div class="cart-item-actions">
-                    <input type="number" min="1" value="${item.quantity}"
-                           onchange="updateQuantity(${index}, this.value)" class="cart-item-quantity">
-                    <button onclick="removeFromCart(${index})" class="btn btn-secondary">Удалить</button>
+                    <div class="cart-item-total">${itemTotal.toLocaleString()} ₽</div>
+                    <button onclick="removeFromCart(${index})" class="btn-remove">×</button>
                 </div>
             </div>
         `;
@@ -99,22 +124,37 @@ function updateCartDisplay() {
     itemsHtml += '</div>';
     cartItems.innerHTML = itemsHtml;
     cartTotal.innerHTML = `<strong>Итого: ${total.toLocaleString()} ₽</strong>`;
-    checkoutBtn.style.display = 'inline-block';
+
+    // Проверяем, авторизован ли пользователь
+    fetch('/profile', { method: 'HEAD' })
+        .then(response => {
+            if (response.ok) {
+                // Пользователь авторизован
+                if (checkoutBtn) {
+                    checkoutBtn.style.display = 'inline-block';
+                    checkoutBtn.href = '/checkout';
+                }
+                if (loginToCheckout) loginToCheckout.style.display = 'none';
+            } else {
+                // Пользователь не авторизован
+                if (checkoutBtn) checkoutBtn.style.display = 'none';
+                if (loginToCheckout) {
+                    loginToCheckout.style.display = 'inline-block';
+                    loginToCheckout.href = '/login?redirect=checkout';
+                }
+            }
+        })
+        .catch(() => {
+            // Ошибка - считаем что не авторизован
+            if (checkoutBtn) checkoutBtn.style.display = 'none';
+            if (loginToCheckout) {
+                loginToCheckout.style.display = 'inline-block';
+                loginToCheckout.href = '/login?redirect=checkout';
+            }
+        });
 
     // Сохраняем общую сумму для страницы оформления
     localStorage.setItem('cartTotal', total);
-}
-
-// Обновление количества
-function updateQuantity(index, quantity) {
-    if (quantity < 1) {
-        removeFromCart(index);
-        return;
-    }
-
-    cart[index].quantity = parseInt(quantity);
-    localStorage.setItem('cart', JSON.stringify(cart));
-    updateCartDisplay();
 }
 
 // Удаление из корзины
@@ -129,3 +169,43 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
     updateCartDisplay();
 });
+
+// Добавляем стили для анимации
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .btn-remove {
+        background: #e30613;
+        color: white;
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.3s;
+    }
+
+    .btn-remove:hover {
+        background-color: #b00410;
+    }
+
+    .cart-item-total {
+        font-weight: bold;
+        margin-right: 10px;
+    }
+`;
+document.head.appendChild(style);

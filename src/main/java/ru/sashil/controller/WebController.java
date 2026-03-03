@@ -8,21 +8,16 @@ public class WebController {
 
     @GetMapping("/")
     public String index() {
-        return "index";  // Возвращает имя шаблона (index.html)
+        return "index";
     }
 
     @GetMapping("/catalog")
     public String catalog() {
-        return "catalog";  // Возвращает имя шаблона (catalog.html)
+        return "catalog";
     }
 
     @GetMapping("/checkout")
     public String checkout() {
-        return "checkout";  // Возвращает имя шаблона (checkout.html)
-    }
-
-    @GetMapping("/order/{orderNumber}")
-    public String orderDetails() {
-        return "order-details";  // Возвращает имя шаблона (order-details.html)
+        return "checkout";
     }
 }
