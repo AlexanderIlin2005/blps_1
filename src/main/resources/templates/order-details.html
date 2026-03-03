@@ -43,11 +43,11 @@
             <div th:if="${order == null}" class="loading">Загрузка...</div>
 
             <div th:if="${order != null}">
-                <h2>Заказ #<span th:text="${order.orderNumber}"></span></h2>
+                <h2>Заказ #<span th:text="${order.orderNumber}" id="order-number"></span></h2>
 
-                <div class="order-info">
+                <div class="order-info" id="order-info">
                     <p><strong>Текущий статус:</strong>
-                        <span class="status-badge" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
+                        <span class="status-badge" th:classappend="'status-' + ${order.status}" id="current-status" th:text="${order.status}"></span>
                     </p>
                     <p><strong>Дата создания:</strong>
                         <span th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm:ss')}"></span>
@@ -101,7 +101,7 @@
                 <!-- История статусов -->
                 <div class="status-history" th:if="${order.statusHistory != null and !order.statusHistory.isEmpty()}">
                     <h3>История статусов</h3>
-                    <div class="timeline">
+                    <div class="timeline" id="status-timeline">
                         <div th:each="history : ${order.statusHistory}" class="timeline-item">
                             <div class="timeline-time" th:text="${#temporals.format(history.changedAt, 'dd.MM.yyyy HH:mm:ss')}"></div>
                             <div class="timeline-content">
@@ -113,8 +113,14 @@
                     </div>
                 </div>
 
+                <!-- Индикатор обновления -->
+                <div class="auto-refresh-indicator" id="refresh-indicator">
+                    <span>Автообновление каждые 5 секунд</span>
+                    <span class="refresh-dot"></span>
+                </div>
+
                 <!-- Кнопка оплаты для неоплаченных заказов -->
-                <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section">
+                <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section" id="payment-section">
                     <h3>Оплатить заказ</h3>
 
                     <form th:action="@{/orders/{id}/payment(id=${order.orderNumber})}" method="post">
@@ -237,6 +243,49 @@
         .timeline-description {
             color: #333;
         }
+
+        .auto-refresh-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+            margin: 1rem 0;
+        }
+
+        .refresh-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .new-status {
+            animation: highlight 2s ease;
+        }
+
+        @keyframes highlight {
+            0% {
+                background-color: rgba(227, 6, 19, 0.2);
+            }
+            100% {
+                background-color: transparent;
+            }
+        }
     </style>
 
     <script>
@@ -261,6 +310,127 @@
                 localStorage.removeItem('cart');
                 localStorage.removeItem('cartTotal');
                 console.log('Cart cleared after order');
+            }
+
+            // Запускаем автообновление статуса
+            const orderNumber = document.getElementById('order-number')?.textContent;
+            if (orderNumber) {
+                startAutoRefresh(orderNumber);
+            }
+        });
+
+        let refreshInterval;
+        let previousStatus = document.getElementById('current-status')?.textContent;
+
+        function startAutoRefresh(orderNumber) {
+            // Обновляем каждые 5 секунд
+            refreshInterval = setInterval(() => refreshOrderStatus(orderNumber), 5000);
+        }
+
+        function refreshOrderStatus(orderNumber) {
+            fetch(`/api/orders/${orderNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateOrderStatus(data);
+                    updateStatusHistory(data.statusHistory);
+                    checkPaymentSection(data);
+                })
+                .catch(error => console.error('Error refreshing order status:', error));
+        }
+
+        function updateOrderStatus(order) {
+            const currentStatusElem = document.getElementById('current-status');
+            const oldStatus = currentStatusElem.textContent;
+            const newStatus = order.status;
+
+            if (oldStatus !== newStatus) {
+                currentStatusElem.textContent = newStatus;
+                currentStatusElem.className = 'status-badge status-' + newStatus;
+
+                // Подсвечиваем изменение
+                currentStatusElem.classList.add('new-status');
+                setTimeout(() => currentStatusElem.classList.remove('new-status'), 2000);
+
+                // Обновляем индикатор
+                document.querySelector('.refresh-dot').style.backgroundColor = '#e30613';
+                setTimeout(() => {
+                    document.querySelector('.refresh-dot').style.backgroundColor = '#4CAF50';
+                }, 1000);
+            }
+
+            // Обновляем статус оплаты и трек-номер
+            const paymentStatusElem = document.querySelector('p:has(strong:contains("Статус оплаты")) span');
+            if (paymentStatusElem && order.paymentStatus) {
+                paymentStatusElem.textContent = order.paymentStatus;
+            }
+
+            const trackingElem = document.querySelector('p:has(strong:contains("Трек-номер")) span');
+            if (order.trackingNumber) {
+                if (trackingElem) {
+                    trackingElem.textContent = order.trackingNumber;
+                } else {
+                    // Добавляем трек-номер если его не было
+                    const orderInfo = document.getElementById('order-info');
+                    const trackingP = document.createElement('p');
+                    trackingP.innerHTML = '<strong>Трек-номер:</strong> <span>' + order.trackingNumber + '</span>';
+                    orderInfo.appendChild(trackingP);
+                }
+            }
+        }
+
+        function updateStatusHistory(history) {
+            if (!history || history.length === 0) return;
+
+            const timeline = document.getElementById('status-timeline');
+            if (!timeline) return;
+
+            // Очищаем и перестраиваем всю историю
+            timeline.innerHTML = '';
+
+            history.forEach(item => {
+                const date = new Date(item.changedAt);
+                const formattedDate = formatDate(date);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'timeline-item';
+                itemDiv.innerHTML = `
+                    <div class="timeline-time">${formattedDate}</div>
+                    <div class="timeline-content">
+                        <span class="status-badge small status-${item.status}">${item.status}</span>
+                        <span class="timeline-description">${item.description || ''}</span>
+                    </div>
+                `;
+                timeline.appendChild(itemDiv);
+            });
+        }
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+        }
+
+        function checkPaymentSection(order) {
+            const paymentSection = document.getElementById('payment-section');
+            if (paymentSection) {
+                const shouldShow = !order.paymentStatus ||
+                                  order.paymentStatus === 'PENDING' ||
+                                  order.paymentStatus === 'FAILED';
+
+                if (!shouldShow) {
+                    paymentSection.style.display = 'none';
+                }
+            }
+        }
+
+        // Останавливаем автообновление при уходе со страницы
+        window.addEventListener('beforeunload', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
             }
         });
     </script>
