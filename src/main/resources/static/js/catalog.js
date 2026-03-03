@@ -19,10 +19,14 @@ async function loadProducts() {
     }
 }
 
-// Создание карточки товара
+// Создание карточки товара со счетчиком
 function createProductCard(product) {
     const card = document.createElement('div');
     card.className = 'product-card';
+    card.dataset.sku = product.sku;
+
+    const cartItem = cart.find(item => item.sku === product.sku);
+    const currentQuantity = cartItem ? cartItem.quantity : 0;
 
     card.innerHTML = `
         <div class="product-image">📱</div>
@@ -30,35 +34,101 @@ function createProductCard(product) {
             <h3>${product.name}</h3>
             <p class="product-price">${product.price.toLocaleString()} ₽</p>
             <p class="product-stock">В наличии: ${product.stockQuantity} шт.</p>
-            <button class="btn btn-primary" onclick="addToCart('${product.sku}', '${product.name}', ${product.price})">
+
+            <div class="product-quantity-control">
+                <button class="quantity-btn decrease-btn" ${currentQuantity === 0 ? 'disabled' : ''}>−</button>
+                <span class="quantity-display" id="quantity-${product.sku}">${currentQuantity}</span>
+                <button class="quantity-btn increase-btn" ${product.stockQuantity <= currentQuantity ? 'disabled' : ''}>+</button>
+            </div>
+
+            <button class="btn btn-primary add-to-cart-btn"
+                    data-sku="${product.sku}"
+                    data-name="${product.name}"
+                    data-price="${product.price}"
+                    ${product.stockQuantity <= 0 ? 'disabled' : ''}>
                 Добавить в корзину
             </button>
         </div>
     `;
 
+    // Добавляем обработчики для кнопок + и -
+    const decreaseBtn = card.querySelector('.decrease-btn');
+    const increaseBtn = card.querySelector('.increase-btn');
+    const quantityDisplay = card.querySelector('.quantity-display');
+    const addBtn = card.querySelector('.add-to-cart-btn');
+
+    decreaseBtn.addEventListener('click', () => {
+        const currentQuantity = parseInt(quantityDisplay.textContent);
+        if (currentQuantity > 0) {
+            updateCartItemQuantity(product.sku, currentQuantity - 1);
+            quantityDisplay.textContent = currentQuantity - 1;
+
+            // Обновляем состояние кнопок
+            decreaseBtn.disabled = currentQuantity - 1 === 0;
+            increaseBtn.disabled = product.stockQuantity <= currentQuantity - 1;
+        }
+    });
+
+    increaseBtn.addEventListener('click', () => {
+        const currentQuantity = parseInt(quantityDisplay.textContent);
+        if (currentQuantity < product.stockQuantity) {
+            updateCartItemQuantity(product.sku, currentQuantity + 1);
+            quantityDisplay.textContent = currentQuantity + 1;
+
+            // Обновляем состояние кнопок
+            decreaseBtn.disabled = false;
+            increaseBtn.disabled = product.stockQuantity <= currentQuantity + 1;
+        }
+    });
+
+    addBtn.addEventListener('click', () => {
+        const quantity = parseInt(quantityDisplay.textContent);
+        if (quantity > 0) {
+            // Товары уже добавлены через кнопки +/-, просто показываем уведомление
+            showNotification(`Товар добавлен в корзину (${quantity} шт.)`);
+        } else {
+            // Если количество 0, добавляем 1
+            updateCartItemQuantity(product.sku, 1);
+            quantityDisplay.textContent = 1;
+            decreaseBtn.disabled = false;
+            increaseBtn.disabled = product.stockQuantity <= 1;
+            showNotification('Товар добавлен в корзину');
+        }
+    });
+
     return card;
 }
 
-// Добавление в корзину
-function addToCart(sku, name, price) {
-    const existingItem = cart.find(item => item.sku === sku);
+// Обновление количества товара в корзине
+function updateCartItemQuantity(sku, newQuantity) {
+    const existingItemIndex = cart.findIndex(item => item.sku === sku);
 
-    if (existingItem) {
-        existingItem.quantity++;
+    if (newQuantity === 0) {
+        // Удаляем товар
+        if (existingItemIndex !== -1) {
+            cart.splice(existingItemIndex, 1);
+        }
     } else {
-        cart.push({
-            sku,
-            name,
-            price,
-            quantity: 1
-        });
+        if (existingItemIndex !== -1) {
+            // Обновляем существующий
+            cart[existingItemIndex].quantity = newQuantity;
+        } else {
+            // Добавляем новый
+            const productCard = document.querySelector(`[data-sku="${sku}"]`);
+            const name = productCard?.querySelector('h3')?.textContent || '';
+            const price = parseFloat(productCard?.querySelector('.product-price')?.textContent?.replace(/[^\d,]/g, '').replace(',', '.') || 0);
+
+            cart.push({
+                sku,
+                name,
+                price,
+                quantity: newQuantity
+            });
+        }
     }
 
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartDisplay();
-
-    // Визуальное подтверждение
-    showNotification('Товар добавлен в корзину');
 }
 
 // Показать уведомление
@@ -66,17 +136,6 @@ function showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'notification';
     notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background-color: #e30613;
-        color: white;
-        padding: 1rem;
-        border-radius: 4px;
-        z-index: 1000;
-        animation: slideIn 0.3s ease;
-    `;
 
     document.body.appendChild(notification);
 
@@ -97,6 +156,18 @@ function updateCartDisplay() {
         cartTotal.innerHTML = '';
         if (checkoutBtn) checkoutBtn.style.display = 'none';
         if (loginToCheckout) loginToCheckout.style.display = 'none';
+
+        // Сбрасываем все счетчики в карточках
+        document.querySelectorAll('.quantity-display').forEach(display => {
+            display.textContent = '0';
+        });
+        document.querySelectorAll('.decrease-btn').forEach(btn => {
+            btn.disabled = true;
+        });
+        document.querySelectorAll('.increase-btn').forEach(btn => {
+            btn.disabled = false;
+        });
+
         return;
     }
 
@@ -108,7 +179,7 @@ function updateCartDisplay() {
         total += itemTotal;
 
         itemsHtml += `
-            <div class="cart-item">
+            <div class="cart-item" data-sku="${item.sku}">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.name}</div>
                     <div class="cart-item-price">${item.price.toLocaleString()} ₽ × ${item.quantity}</div>
@@ -119,6 +190,22 @@ function updateCartDisplay() {
                 </div>
             </div>
         `;
+
+        // Обновляем счетчик в карточке товара
+        const quantityDisplay = document.getElementById(`quantity-${item.sku}`);
+        if (quantityDisplay) {
+            quantityDisplay.textContent = item.quantity;
+
+            const card = quantityDisplay.closest('.product-card');
+            if (card) {
+                const decreaseBtn = card.querySelector('.decrease-btn');
+                const increaseBtn = card.querySelector('.increase-btn');
+                const productStock = parseInt(card.querySelector('.product-stock').textContent.match(/\d+/)[0]);
+
+                decreaseBtn.disabled = item.quantity <= 0;
+                increaseBtn.disabled = productStock <= item.quantity;
+            }
+        }
     });
 
     itemsHtml += '</div>';
@@ -129,14 +216,12 @@ function updateCartDisplay() {
     fetch('/profile', { method: 'HEAD' })
         .then(response => {
             if (response.ok) {
-                // Пользователь авторизован
                 if (checkoutBtn) {
                     checkoutBtn.style.display = 'inline-block';
                     checkoutBtn.href = '/checkout';
                 }
                 if (loginToCheckout) loginToCheckout.style.display = 'none';
             } else {
-                // Пользователь не авторизован
                 if (checkoutBtn) checkoutBtn.style.display = 'none';
                 if (loginToCheckout) {
                     loginToCheckout.style.display = 'inline-block';
@@ -145,7 +230,6 @@ function updateCartDisplay() {
             }
         })
         .catch(() => {
-            // Ошибка - считаем что не авторизован
             if (checkoutBtn) checkoutBtn.style.display = 'none';
             if (loginToCheckout) {
                 loginToCheckout.style.display = 'inline-block';
@@ -159,8 +243,26 @@ function updateCartDisplay() {
 
 // Удаление из корзины
 function removeFromCart(index) {
+    const removedItem = cart[index];
     cart.splice(index, 1);
     localStorage.setItem('cart', JSON.stringify(cart));
+
+    // Сбрасываем счетчик для удаленного товара
+    if (removedItem) {
+        const quantityDisplay = document.getElementById(`quantity-${removedItem.sku}`);
+        if (quantityDisplay) {
+            quantityDisplay.textContent = '0';
+
+            const card = quantityDisplay.closest('.product-card');
+            if (card) {
+                const decreaseBtn = card.querySelector('.decrease-btn');
+                const increaseBtn = card.querySelector('.increase-btn');
+                decreaseBtn.disabled = true;
+                increaseBtn.disabled = false;
+            }
+        }
+    }
+
     updateCartDisplay();
 }
 
@@ -170,42 +272,62 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCartDisplay();
 });
 
-// Добавляем стили для анимации
+// Добавляем стили для счетчика
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    .btn-remove {
-        background: #e30613;
-        color: white;
-        border: none;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 18px;
+    .product-quantity-control {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background-color 0.3s;
+        gap: 1rem;
+        margin: 1rem 0;
     }
 
-    .btn-remove:hover {
-        background-color: #b00410;
-    }
-
-    .cart-item-total {
+    .quantity-btn {
+        width: 36px;
+        height: 36px;
+        border: 2px solid #e30613;
+        background: white;
+        color: #e30613;
+        font-size: 1.2rem;
         font-weight: bold;
-        margin-right: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .quantity-btn:hover:not(:disabled) {
+        background: #e30613;
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .quantity-btn:disabled {
+        border-color: #ccc;
+        color: #ccc;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .quantity-display {
+        font-size: 1.2rem;
+        font-weight: bold;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    .add-to-cart-btn {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .add-to-cart-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        transform: none;
     }
 `;
 document.head.appendChild(style);

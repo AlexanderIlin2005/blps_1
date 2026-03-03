@@ -67,10 +67,10 @@
                              order.paymentMethod == 'sbp' ? 'СБП' : 'Рассрочка') : 'Не выбран'}"></span>
                     </p>
                     <p><strong>Статус оплаты:</strong>
-                        <span th:text="${order.paymentStatus != null ? order.paymentStatus : 'Ожидает'}"></span>
+                        <span th:text="${order.paymentStatus != null ? order.paymentStatus : 'Ожидает'}" id="payment-status"></span>
                     </p>
-                    <p th:if="${order.trackingNumber != null}">
-                        <strong>Трек-номер:</strong> <span th:text="${order.trackingNumber}"></span>
+                    <p th:if="${order.trackingNumber != null}" id="tracking-container">
+                        <strong>Трек-номер:</strong> <span th:text="${order.trackingNumber}" id="tracking-number"></span>
                     </p>
                 </div>
 
@@ -84,7 +84,7 @@
                             <th>Сумма</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="order-items-body">
                         <tr th:each="item : ${order.items}">
                             <td th:text="${item.productName}"></td>
                             <td th:text="${item.quantity}"></td>
@@ -95,11 +95,11 @@
                 </table>
 
                 <div class="order-total">
-                    <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}"></span></strong>
+                    <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}" id="order-total"></span></strong>
                 </div>
 
                 <!-- История статусов -->
-                <div class="status-history" th:if="${order.statusHistory != null and !order.statusHistory.isEmpty()}">
+                <div class="status-history">
                     <h3>История статусов</h3>
                     <div class="timeline" id="status-timeline">
                         <div th:each="history : ${order.statusHistory}" class="timeline-item">
@@ -111,12 +111,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Индикатор обновления -->
-                <div class="auto-refresh-indicator" id="refresh-indicator">
-                    <span>Автообновление каждые 5 секунд</span>
-                    <span class="refresh-dot"></span>
                 </div>
 
                 <!-- Кнопка оплаты для неоплаченных заказов -->
@@ -244,36 +238,6 @@
             color: #333;
         }
 
-        .auto-refresh-indicator {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            color: #666;
-            margin: 1rem 0;
-        }
-
-        .refresh-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #4CAF50;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.3;
-            }
-            100% {
-                opacity: 1;
-            }
-        }
-
         .new-status {
             animation: highlight 2s ease;
         }
@@ -320,7 +284,6 @@
         });
 
         let refreshInterval;
-        let previousStatus = document.getElementById('current-status')?.textContent;
 
         function startAutoRefresh(orderNumber) {
             // Обновляем каждые 5 секунд
@@ -340,40 +303,38 @@
 
         function updateOrderStatus(order) {
             const currentStatusElem = document.getElementById('current-status');
-            const oldStatus = currentStatusElem.textContent;
-            const newStatus = order.status;
+            if (currentStatusElem) {
+                const oldStatus = currentStatusElem.textContent;
+                const newStatus = order.status;
 
-            if (oldStatus !== newStatus) {
-                currentStatusElem.textContent = newStatus;
-                currentStatusElem.className = 'status-badge status-' + newStatus;
-
-                // Подсвечиваем изменение
-                currentStatusElem.classList.add('new-status');
-                setTimeout(() => currentStatusElem.classList.remove('new-status'), 2000);
-
-                // Обновляем индикатор
-                document.querySelector('.refresh-dot').style.backgroundColor = '#e30613';
-                setTimeout(() => {
-                    document.querySelector('.refresh-dot').style.backgroundColor = '#4CAF50';
-                }, 1000);
+                if (oldStatus !== newStatus) {
+                    currentStatusElem.textContent = newStatus;
+                    currentStatusElem.className = 'status-badge status-' + newStatus;
+                    currentStatusElem.classList.add('new-status');
+                    setTimeout(() => currentStatusElem.classList.remove('new-status'), 2000);
+                }
             }
 
-            // Обновляем статус оплаты и трек-номер
-            const paymentStatusElem = document.querySelector('p:has(strong:contains("Статус оплаты")) span');
+            // Обновляем статус оплаты
+            const paymentStatusElem = document.getElementById('payment-status');
             if (paymentStatusElem && order.paymentStatus) {
                 paymentStatusElem.textContent = order.paymentStatus;
             }
 
-            const trackingElem = document.querySelector('p:has(strong:contains("Трек-номер")) span');
+            // Обновляем трек-номер
+            const trackingContainer = document.getElementById('tracking-container');
+            const trackingNumberElem = document.getElementById('tracking-number');
+
             if (order.trackingNumber) {
-                if (trackingElem) {
-                    trackingElem.textContent = order.trackingNumber;
-                } else {
+                if (trackingNumberElem) {
+                    trackingNumberElem.textContent = order.trackingNumber;
+                } else if (!trackingContainer) {
                     // Добавляем трек-номер если его не было
                     const orderInfo = document.getElementById('order-info');
-                    const trackingP = document.createElement('p');
-                    trackingP.innerHTML = '<strong>Трек-номер:</strong> <span>' + order.trackingNumber + '</span>';
-                    orderInfo.appendChild(trackingP);
+                    const newTrackingP = document.createElement('p');
+                    newTrackingP.id = 'tracking-container';
+                    newTrackingP.innerHTML = '<strong>Трек-номер:</strong> <span id="tracking-number">' + order.trackingNumber + '</span>';
+                    orderInfo.appendChild(newTrackingP);
                 }
             }
         }
@@ -384,24 +345,53 @@
             const timeline = document.getElementById('status-timeline');
             if (!timeline) return;
 
-            // Очищаем и перестраиваем всю историю
-            timeline.innerHTML = '';
+            // Получаем текущее количество элементов в истории
+            const currentItems = timeline.children.length;
 
-            history.forEach(item => {
-                const date = new Date(item.changedAt);
-                const formattedDate = formatDate(date);
+            // Если история изменилась (появились новые записи)
+            if (history.length > currentItems) {
+                // Очищаем и перестраиваем всю историю
+                timeline.innerHTML = '';
 
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'timeline-item';
-                itemDiv.innerHTML = `
-                    <div class="timeline-time">${formattedDate}</div>
-                    <div class="timeline-content">
-                        <span class="status-badge small status-${item.status}">${item.status}</span>
-                        <span class="timeline-description">${item.description || ''}</span>
-                    </div>
-                `;
-                timeline.appendChild(itemDiv);
-            });
+                history.forEach(item => {
+                    const date = new Date(item.changedAt);
+                    const formattedDate = formatDate(date);
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'timeline-item';
+
+                    const statusSpan = document.createElement('span');
+                    statusSpan.className = 'status-badge small status-' + item.status;
+                    statusSpan.textContent = item.status;
+
+                    const descSpan = document.createElement('span');
+                    descSpan.className = 'timeline-description';
+                    descSpan.textContent = item.description || '';
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'timeline-content';
+                    contentDiv.appendChild(statusSpan);
+                    contentDiv.appendChild(descSpan);
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'timeline-time';
+                    timeDiv.textContent = formattedDate;
+
+                    itemDiv.appendChild(timeDiv);
+                    itemDiv.appendChild(contentDiv);
+
+                    timeline.appendChild(itemDiv);
+                });
+
+                // Подсвечиваем новые записи
+                const newItems = timeline.children;
+                for (let i = 0; i < newItems.length; i++) {
+                    if (i >= currentItems) {
+                        newItems[i].classList.add('new-status');
+                        setTimeout(() => newItems[i].classList.remove('new-status'), 2000);
+                    }
+                }
+            }
         }
 
         function formatDate(date) {
@@ -421,9 +411,7 @@
                                   order.paymentStatus === 'PENDING' ||
                                   order.paymentStatus === 'FAILED';
 
-                if (!shouldShow) {
-                    paymentSection.style.display = 'none';
-                }
+                paymentSection.style.display = shouldShow ? 'block' : 'none';
             }
         }
 
