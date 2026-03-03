@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог товаров</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Каталог товаров</h1>
+            <nav>
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/catalog">Каталог</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="cart-container">
+            <h2>Корзина</h2>
+            <div id="cart-items" class="cart-items">
+                <p>Корзина пуста</p>
+            </div>
+            <div id="cart-total" class="cart-total"></div>
+            <a href="/checkout" class="btn btn-primary" id="checkout-btn" style="display: none;">Оформить заказ</a>
+        </div>
+
+        <h2>Товары</h2>
+        <div id="products" class="products-grid">
+            <!-- Товары будут загружаться через API -->
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Интернет-магазин МТС</p>
+        </div>
+    </footer>
+
+    <script src="/js/catalog.js"></script>
+</body>
+</html>
