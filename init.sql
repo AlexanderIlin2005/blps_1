@@ -96,10 +96,3 @@ CREATE TABLE IF NOT EXISTS order_status_history (
 CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_status_history_changed_at ON order_status_history(changed_at);
 
--- Комментарии к таблицам
-COMMENT ON TABLE users IS 'Пользователи системы';
-COMMENT ON TABLE products IS 'Товары в каталоге';
-COMMENT ON TABLE orders IS 'Заказы пользователей';
-COMMENT ON TABLE order_items IS 'Товары в заказах';
-COMMENT ON TABLE order_status_history IS 'История изменений статусов заказов';
-
