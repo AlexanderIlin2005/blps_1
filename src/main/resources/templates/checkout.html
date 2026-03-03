@@ -32,6 +32,12 @@
         </div>
 
         <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post">
+            <!-- CSRF токен -->
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+            <!-- Скрытые поля для товаров из корзины будут добавлены через JavaScript -->
+            <div id="cart-items-container"></div>
+
             <div class="form-section">
                 <h3>Контактная информация</h3>
 
@@ -70,15 +76,16 @@
 
                 <div id="courier-fields" class="delivery-fields">
                     <div class="form-group">
-                        <label for="deliveryAddress">Адрес доставки *</label>
-                        <input type="text" id="deliveryAddress" name="deliveryAddress">
+                        <label for="deliveryAddress">Адрес доставки</label>
+                        <input type="text" id="deliveryAddress" name="deliveryAddress" placeholder="Введите адрес доставки">
                     </div>
                 </div>
 
                 <div id="pickup-fields" class="delivery-fields" style="display: none;">
                     <div class="form-group">
-                        <label for="pickupPointId">Пункт самовывоза *</label>
+                        <label for="pickupPointId">Пункт самовывоза</label>
                         <select id="pickupPointId" name="pickupPointId">
+                            <option value="">Выберите пункт выдачи</option>
                             <option value="p1">ул. Тверская, 7</option>
                             <option value="p2">пр. Мира, 26</option>
                             <option value="p3">Ленинский пр., 68</option>

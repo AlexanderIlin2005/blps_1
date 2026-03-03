@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import ru.sashil.dto.CartItemDTO;
 import ru.sashil.dto.CreateOrderRequest;
 import ru.sashil.dto.OrderResponse;
 import ru.sashil.dto.PaymentRequest;
@@ -15,6 +16,7 @@ import ru.sashil.model.User;
 import ru.sashil.service.OrderService;
 import ru.sashil.service.UserService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Controller
@@ -44,29 +46,97 @@ public class OrderController {
     }
 
     @PostMapping("/create")
-    public String createOrder(@ModelAttribute CreateOrderRequest request, Model model) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userService.findByUsername(auth.getName());
+    public String createOrder(
+            @RequestParam("customerName") String customerName,
+            @RequestParam("customerEmail") String customerEmail,
+            @RequestParam("customerPhone") String customerPhone,
+            @RequestParam("deliveryType") String deliveryType,
+            @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
+            @RequestParam(value = "pickupPointId", required = false) String pickupPointId,
+            @RequestParam("paymentMethod") String paymentMethod,
+            @RequestParam(value = "cardNumber", required = false) String cardNumber,
+            @RequestParam(value = "cardExpiry", required = false) String cardExpiry,
+            @RequestParam(value = "cardCvv", required = false) String cardCvv,
+            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
+            @RequestParam(value = "items[0].productId", required = false) List<String> productIds,
+            @RequestParam(value = "items[0].productName", required = false) List<String> productNames,
+            @RequestParam(value = "items[0].quantity", required = false) List<Integer> quantities,
+            @RequestParam(value = "items[0].price", required = false) List<Double> prices,
+            Model model) {
 
-        request.setCustomerId(user.getId());
-        request.setCustomerName(user.getFullName());
-        request.setCustomerEmail(user.getEmail());
-        request.setCustomerPhone(user.getPhone());
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.findByUsername(auth.getName());
 
-        OrderResponse response = orderService.createOrder(request);
-        return "redirect:/orders/" + response.getOrderNumber();
+            log.info("Creating order for user: {} with {} items", user.getUsername(),
+                productIds != null ? productIds.size() : 0);
+
+            // Создаем список товаров
+            List<CartItemDTO> items = new ArrayList<>();
+            if (productIds != null && !productIds.isEmpty()) {
+                for (int i = 0; i < productIds.size(); i++) {
+                    CartItemDTO item = new CartItemDTO();
+                    item.setProductId(productIds.get(i));
+                    item.setProductName(productNames.get(i));
+                    item.setQuantity(quantities.get(i));
+                    item.setPrice(prices.get(i));
+                    items.add(item);
+                }
+            }
+
+            // Создаем запрос
+            CreateOrderRequest request = new CreateOrderRequest();
+            request.setCustomerId(user.getId());
+            request.setCustomerName(customerName);
+            request.setCustomerEmail(customerEmail);
+            request.setCustomerPhone(customerPhone);
+            request.setItems(items);
+            request.setDeliveryType(deliveryType.equals("COURIER") ?
+                ru.sashil.model.DeliveryType.COURIER : ru.sashil.model.DeliveryType.PICKUP);
+
+            if (deliveryType.equals("COURIER")) {
+                request.setDeliveryAddress(deliveryAddress);
+            } else {
+                request.setPickupPointId(pickupPointId);
+                // Здесь можно добавить получение адреса ПВЗ по ID
+                if ("p1".equals(pickupPointId)) {
+                    request.setPickupPointAddress("ул. Тверская, 7");
+                } else if ("p2".equals(pickupPointId)) {
+                    request.setPickupPointAddress("пр. Мира, 26");
+                } else if ("p3".equals(pickupPointId)) {
+                    request.setPickupPointAddress("Ленинский пр., 68");
+                }
+            }
+
+            // Создаем заказ
+            OrderResponse response = orderService.createOrder(request);
+            log.info("Order created successfully: {}", response.getOrderNumber());
+
+            // Очищаем корзину
+            model.addAttribute("orderNumber", response.getOrderNumber());
+
+            return "redirect:/orders/" + response.getOrderNumber();
+
+        } catch (Exception e) {
+            log.error("Error creating order: {}", e.getMessage(), e);
+            model.addAttribute("error", "Ошибка при создании заказа: " + e.getMessage());
+            return "redirect:/checkout?error=true";
+        }
     }
 
     @PostMapping("/{orderNumber}/payment")
     public String processPayment(
             @PathVariable String orderNumber,
-            @ModelAttribute PaymentRequest paymentRequest,
+            @RequestParam("paymentMethod") String paymentMethod,
+            @RequestParam(value = "cardNumber", required = false) String cardNumber,
             Model model) {
+
         OrderResponse response = orderService.processPayment(
             orderNumber,
-            paymentRequest.getPaymentMethod(),
-            paymentRequest.getCardNumber()
+            paymentMethod,
+            cardNumber
         );
+
         return "redirect:/orders/" + orderNumber;
     }
 

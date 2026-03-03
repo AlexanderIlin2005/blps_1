@@ -6,6 +6,7 @@ const cartTotal = localStorage.getItem('cartTotal') || 0;
 function displayOrderItems() {
     const orderItems = document.getElementById('order-items');
     const orderTotal = document.getElementById('order-total');
+    const cartContainer = document.getElementById('cart-items-container');
 
     if (cart.length === 0) {
         window.location.href = '/catalog';
@@ -15,7 +16,10 @@ function displayOrderItems() {
     let itemsHtml = '<table class="order-items-table">';
     itemsHtml += '<tr><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr>';
 
-    cart.forEach(item => {
+    // Очищаем контейнер для скрытых полей
+    cartContainer.innerHTML = '';
+
+    cart.forEach((item, index) => {
         const total = item.price * item.quantity;
         itemsHtml += `
             <tr>
@@ -24,6 +28,14 @@ function displayOrderItems() {
                 <td>${item.price.toLocaleString()} ₽</td>
                 <td>${total.toLocaleString()} ₽</td>
             </tr>
+        `;
+
+        // Добавляем скрытые поля для каждого товара
+        cartContainer.innerHTML += `
+            <input type="hidden" name="items[${index}].productId" value="${item.sku}">
+            <input type="hidden" name="items[${index}].productName" value="${item.name}">
+            <input type="hidden" name="items[${index}].quantity" value="${item.quantity}">
+            <input type="hidden" name="items[${index}].price" value="${item.price}">
         `;
     });
 
@@ -36,18 +48,29 @@ function displayOrderItems() {
 function toggleDeliveryFields() {
     const courierFields = document.getElementById('courier-fields');
     const pickupFields = document.getElementById('pickup-fields');
-    const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
+    const deliveryRadios = document.querySelectorAll('input[name="deliveryType"]');
+    let deliveryType = 'COURIER';
+
+    deliveryRadios.forEach(radio => {
+        if (radio.checked) {
+            deliveryType = radio.value;
+        }
+    });
 
     if (deliveryType === 'COURIER') {
         courierFields.style.display = 'block';
         pickupFields.style.display = 'none';
         document.getElementById('deliveryAddress').required = true;
-        document.getElementById('pickupPointId').required = false;
+        if (document.getElementById('pickupPointId')) {
+            document.getElementById('pickupPointId').required = false;
+        }
     } else {
         courierFields.style.display = 'none';
         pickupFields.style.display = 'block';
         document.getElementById('deliveryAddress').required = false;
-        document.getElementById('pickupPointId').required = true;
+        if (document.getElementById('pickupPointId')) {
+            document.getElementById('pickupPointId').required = true;
+        }
     }
 }
 
@@ -55,7 +78,14 @@ function toggleDeliveryFields() {
 function togglePaymentFields() {
     const cardDetails = document.getElementById('card-details');
     const sbpDetails = document.getElementById('sbp-details');
-    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+    let paymentMethod = 'card';
+
+    paymentRadios.forEach(radio => {
+        if (radio.checked) {
+            paymentMethod = radio.value;
+        }
+    });
 
     cardDetails.style.display = 'none';
     sbpDetails.style.display = 'none';
