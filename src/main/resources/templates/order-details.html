@@ -28,11 +28,11 @@
 
     <main class="container">
         <div th:if="${param.success}" class="success-message">
-            Заказ успешно создан! Вы можете оплатить его ниже.
+            Заказ успешно создан! Статус заказа будет обновляться автоматически.
         </div>
 
         <div th:if="${param.payment == 'success'}" class="success-message">
-            Оплата прошла успешно!
+            Оплата прошла успешно! Начат процесс обработки заказа.
         </div>
 
         <div th:if="${param.payment == 'failed'}" class="error-message">
@@ -46,11 +46,11 @@
                 <h2>Заказ #<span th:text="${order.orderNumber}"></span></h2>
 
                 <div class="order-info">
-                    <p><strong>Статус:</strong>
+                    <p><strong>Текущий статус:</strong>
                         <span class="status-badge" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
                     </p>
                     <p><strong>Дата создания:</strong>
-                        <span th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                        <span th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm:ss')}"></span>
                     </p>
                     <p><strong>Способ получения:</strong>
                         <span th:text="${order.deliveryType == 'COURIER' ? 'Курьером' : 'Самовывоз'}"></span>
@@ -98,6 +98,21 @@
                     <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}"></span></strong>
                 </div>
 
+                <!-- История статусов -->
+                <div class="status-history" th:if="${order.statusHistory != null and !order.statusHistory.isEmpty()}">
+                    <h3>История статусов</h3>
+                    <div class="timeline">
+                        <div th:each="history : ${order.statusHistory}" class="timeline-item">
+                            <div class="timeline-time" th:text="${#temporals.format(history.changedAt, 'dd.MM.yyyy HH:mm:ss')}"></div>
+                            <div class="timeline-content">
+                                <span class="status-badge small" th:classappend="'status-' + ${history.status}"
+                                      th:text="${history.status}"></span>
+                                <span class="timeline-description" th:text="${history.description}"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Кнопка оплаты для неоплаченных заказов -->
                 <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section">
                     <h3>Оплатить заказ</h3>
@@ -107,11 +122,11 @@
 
                         <div class="form-group">
                             <label>
-                                <input type="radio" name="paymentMethod" value="card" checked>
+                                <input type="radio" name="paymentMethod" value="card" checked onchange="togglePaymentFields()">
                                 Банковская карта
                             </label>
                             <label>
-                                <input type="radio" name="paymentMethod" value="sbp">
+                                <input type="radio" name="paymentMethod" value="sbp" onchange="togglePaymentFields()">
                                 СБП
                             </label>
                         </div>
@@ -160,30 +175,87 @@
         </div>
     </footer>
 
+    <style>
+        .status-history {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e30613;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 0.5rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e30613;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #e30613;
+        }
+
+        .timeline-time {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .status-badge.small {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.5rem;
+        }
+
+        .timeline-description {
+            color: #333;
+        }
+    </style>
+
     <script>
-        // Переключение полей оплаты
-        document.addEventListener('DOMContentLoaded', function() {
-            const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+        function togglePaymentFields() {
             const cardDetails = document.getElementById('card-details');
             const sbpDetails = document.getElementById('sbp-details');
+            const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
 
-            function togglePaymentFields() {
-                const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-
-                if (selectedMethod === 'card') {
-                    cardDetails.style.display = 'block';
-                    sbpDetails.style.display = 'none';
-                } else {
-                    cardDetails.style.display = 'none';
-                    sbpDetails.style.display = 'block';
-                }
+            if (selectedMethod === 'card') {
+                cardDetails.style.display = 'block';
+                sbpDetails.style.display = 'none';
+            } else {
+                cardDetails.style.display = 'none';
+                sbpDetails.style.display = 'block';
             }
+        }
 
-            paymentRadios.forEach(radio => {
-                radio.addEventListener('change', togglePaymentFields);
-            });
-
-            // Очищаем корзину после успешного заказа
+        // Очищаем корзину после успешного заказа
+        document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('success')) {
                 localStorage.removeItem('cart');

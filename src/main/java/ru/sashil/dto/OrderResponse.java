@@ -26,4 +26,16 @@ public class OrderResponse {
     private String paymentMethod;
     private PaymentStatus paymentStatus;
     private String trackingNumber;
+
+    // История статусов
+    private List<StatusHistoryDTO> statusHistory;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StatusHistoryDTO {
+        private OrderStatus status;
+        private LocalDateTime changedAt;
+        private String description;
+    }
 }

@@ -2,6 +2,8 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sashil.dto.CartItemDTO;
@@ -10,9 +12,11 @@ import ru.sashil.dto.OrderResponse;
 import ru.sashil.dto.PaymentResponse;
 import ru.sashil.model.*;
 import ru.sashil.repository.OrderRepository;
+import ru.sashil.repository.OrderStatusHistoryRepository;
 import ru.sashil.repository.ProductRepository;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,8 +29,22 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
-    private final PaymentService paymentService;
+    private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
+
+    // Используем @Lazy для разрыва цикла
+    private PaymentService paymentService;
+    private InventoryService inventoryService;
+
+    @Autowired
+    public void setPaymentService(@Lazy PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @Autowired
+    public void setInventoryService(@Lazy InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
+    }
 
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -85,6 +103,10 @@ public class OrderService {
         order.setPaymentStatus(PaymentStatus.PENDING);
 
         Order savedOrder = orderRepository.save(order);
+
+        // Записываем историю
+        addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Заказ создан");
+
         log.info("Order created with number: {}", savedOrder.getOrderNumber());
 
         return mapToResponse(savedOrder);
@@ -102,6 +124,9 @@ public class OrderService {
         order.setStatus(OrderStatus.PAYMENT_PROCESSING);
         orderRepository.save(order);
 
+        addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,
+            "Обработка платежа методом: " + getPaymentMethodName(paymentMethod));
+
         // Заглушка платежной системы
         PaymentResponse paymentResponse = paymentService.processPayment(
             orderNumber,
@@ -117,6 +142,9 @@ public class OrderService {
             order.setPaidAt(LocalDateTime.now());
             orderRepository.save(order);
 
+            addStatusHistory(order, OrderStatus.PAID,
+                "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
+
             // Отправка подтверждения
             notificationService.sendOrderConfirmation(order);
 
@@ -127,9 +155,61 @@ public class OrderService {
             order.setStatus(OrderStatus.CANCELLED);
             order.setCancelledAt(LocalDateTime.now());
             orderRepository.save(order);
+
+            addStatusHistory(order, OrderStatus.CANCELLED,
+                "Оплата не удалась: " + paymentResponse.getMessage());
         }
 
         return mapToResponse(order);
+    }
+
+    @Transactional
+    public void updateOrderStatus(String orderNumber, OrderStatus newStatus, String description) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(newStatus);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        addStatusHistory(order, newStatus, description);
+
+        log.info("Order {} status changed: {} -> {} ({})",
+            orderNumber, oldStatus, newStatus, description);
+    }
+
+    @Transactional
+    public void updateTracking(String orderNumber, String trackingNumber) {
+        log.info("Updating tracking for order: {} with tracking: {}", orderNumber, trackingNumber);
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+        order.setTrackingNumber(trackingNumber);
+        order.setStatus(OrderStatus.SHIPPED);
+        order.setShippedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        addStatusHistory(order, OrderStatus.SHIPPED,
+            "Трек-номер сгенерирован: " + trackingNumber);
+
+        notificationService.sendTrackingInfo(order);
+    }
+
+    @Transactional
+    public void completeDelivery(String orderNumber) {
+        log.info("Completing delivery for order: {}", orderNumber);
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+        order.setStatus(OrderStatus.COMPLETED);
+        order.setDeliveredAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        addStatusHistory(order, OrderStatus.COMPLETED,
+            "Заказ получен покупателем");
     }
 
     @Transactional
@@ -146,35 +226,20 @@ public class OrderService {
             order.setCancelledAt(LocalDateTime.now());
             orderRepository.save(order);
 
+            addStatusHistory(order, OrderStatus.CANCELLED,
+                "Заказ отменен по таймауту оплаты (30 минут)");
+
             notificationService.sendOrderCancelledNotification(order);
         }
     }
 
-    @Transactional
-    public void updateTracking(String orderNumber, String trackingNumber) {
-        log.info("Updating tracking for order: {} with tracking: {}", orderNumber, trackingNumber);
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-
-        order.setTrackingNumber(trackingNumber);
-        order.setStatus(OrderStatus.SHIPPED);
-        order.setShippedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        notificationService.sendTrackingInfo(order);
-    }
-
-    @Transactional
-    public void completeDelivery(String orderNumber) {
-        log.info("Completing delivery for order: {}", orderNumber);
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-
-        order.setStatus(OrderStatus.COMPLETED);
-        order.setDeliveredAt(LocalDateTime.now());
-        orderRepository.save(order);
+    private void addStatusHistory(Order order, OrderStatus status, String description) {
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrder(order);
+        history.setStatus(status);
+        history.setChangedAt(LocalDateTime.now());
+        history.setDescription(description);
+        historyRepository.save(history);
     }
 
     public OrderResponse getOrder(String orderNumber) {
@@ -191,6 +256,15 @@ public class OrderService {
 
     private String generateOrderNumber() {
         return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private String getPaymentMethodName(String method) {
+        switch (method) {
+            case "card": return "Банковская карта";
+            case "sbp": return "СБП";
+            case "installments": return "Рассрочка";
+            default: return method;
+        }
     }
 
     private OrderResponse mapToResponse(Order order) {
@@ -216,6 +290,17 @@ public class OrderService {
             ))
             .collect(Collectors.toList());
         response.setItems(items);
+
+        // Загружаем историю статусов
+        List<OrderStatusHistory> history = historyRepository.findByOrderOrderByChangedAtDesc(order);
+        List<OrderResponse.StatusHistoryDTO> historyDTOs = history.stream()
+            .map(h -> new OrderResponse.StatusHistoryDTO(
+                h.getStatus(),
+                h.getChangedAt(),
+                h.getDescription()
+            ))
+            .collect(Collectors.toList());
+        response.setStatusHistory(historyDTOs);
 
         return response;
     }

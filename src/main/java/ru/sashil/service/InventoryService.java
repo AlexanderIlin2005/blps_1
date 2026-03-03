@@ -23,6 +23,7 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
 
+    // Используем @Lazy для разрыва цикла
     private OrderService orderService;
     private DeliveryService deliveryService;
 
@@ -43,12 +44,9 @@ public class InventoryService {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 // Обновляем статус на PROCESSING
-                order.setStatus(OrderStatus.PROCESSING);
-                orderRepository.save(order);
-                log.info("Order {} status updated to PROCESSING", order.getOrderNumber());
-
-                // Небольшая пауза для имитации работы
-                Thread.sleep(1500);
+                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PROCESSING,
+                    "Начата обработка заказа на складе");
+                Thread.sleep(2000);
 
                 // Проверка наличия на складе
                 log.info("Checking stock for order: {}", order.getOrderNumber());
@@ -57,17 +55,13 @@ public class InventoryService {
                 if (allInStock) {
                     log.info("All items in stock for order: {}", order.getOrderNumber());
 
-                    order.setStatus(OrderStatus.PACKING);
-                    orderRepository.save(order);
-                    log.info("Order {} status updated to PACKING", order.getOrderNumber());
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PACKING,
+                        "Товары в наличии, начата сборка заказа");
+                    Thread.sleep(3000);
 
-                    // Сборка заказа
-                    log.info("Packing order: {}", order.getOrderNumber());
-                    Thread.sleep(2000); // Имитация времени сборки
-
-                    order.setStatus(OrderStatus.READY_FOR_SHIPPING);
-                    orderRepository.save(order);
-                    log.info("Order {} ready for shipping", order.getOrderNumber());
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.READY_FOR_SHIPPING,
+                        "Заказ собран и упакован, готов к передаче в доставку");
+                    Thread.sleep(1000);
 
                     // Передача в доставку
                     log.info("Handing over to delivery service: {}", order.getOrderNumber());
@@ -77,10 +71,10 @@ public class InventoryService {
                 } else {
                     log.warn("❌ Some items out of stock for order: {}", order.getOrderNumber());
 
-                    // Возврат средств
-                    order.setStatus(OrderStatus.CANCELLED);
-                    orderRepository.save(order);
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
+                        "Товара нет в наличии, заказ отменен");
 
+                    // Здесь должен быть возврат средств
                     notificationService.sendOutOfStockNotification(order);
                 }
             } catch (Exception e) {

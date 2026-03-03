@@ -2,11 +2,11 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import ru.sashil.dto.PaymentResponse;
 import ru.sashil.model.Order;
-import ru.sashil.model.OrderStatus;
-import ru.sashil.model.PaymentStatus;
 import ru.sashil.repository.OrderRepository;
 
 import java.util.UUID;
@@ -18,8 +18,15 @@ import java.util.concurrent.CompletableFuture;
 public class PaymentService {
 
     private final OrderRepository orderRepository;
-    private final InventoryService inventoryService;
     private final NotificationService notificationService;
+
+    // Используем @Lazy для разрыва цикла
+    private InventoryService inventoryService;
+
+    @Autowired
+    public void setInventoryService(@Lazy InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
+    }
 
     // Заглушка платежной системы
     public PaymentResponse processPayment(String orderNumber, String paymentMethod, Double amount, String details) {

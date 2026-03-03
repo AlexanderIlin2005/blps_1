@@ -2,14 +2,11 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.sashil.model.DeliveryType;
 import ru.sashil.model.Order;
 import ru.sashil.model.OrderStatus;
-import ru.sashil.repository.OrderRepository;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -18,15 +15,8 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class DeliveryService {
 
-    private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final NotificationService notificationService;
-
-    private OrderService orderService;
-
-    @Autowired
-    public void setOrderService(@Lazy OrderService orderService) {
-        this.orderService = orderService;
-    }
 
     @Async
     public CompletableFuture<Void> handoverToDelivery(Order order) {
@@ -40,37 +30,39 @@ public class DeliveryService {
 
                 // Обновление статуса через OrderService
                 orderService.updateTracking(order.getOrderNumber(), trackingNumber);
+                Thread.sleep(1000);
 
-                order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
-                orderRepository.save(order);
-                log.info("Order {} is out for delivery", order.getOrderNumber());
+                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
+                    "Заказ передан в службу доставки, трек-номер: " + trackingNumber);
 
                 // Имитация доставки
                 log.info("Delivery in progress for order: {}...", order.getOrderNumber());
-                Thread.sleep(3000);
 
                 if (order.getDeliveryType() == DeliveryType.COURIER) {
                     // Курьерская доставка
-                    log.info("Courier delivering to address: {}", order.getDeliveryAddress());
-                    Thread.sleep(2000);
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
+                        "Курьер выехал по адресу: " + order.getDeliveryAddress());
+                    Thread.sleep(4000);
 
-                    orderService.completeDelivery(order.getOrderNumber());
-                    log.info("✅ Order {} delivered by courier", order.getOrderNumber());
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.DELIVERED,
+                        "Заказ доставлен курьером");
+                    Thread.sleep(1000);
 
                 } else {
                     // ПВЗ
-                    log.info("Order ready for pickup at: {}", order.getPickupPointAddress());
-                    order.setStatus(OrderStatus.PICKUP_READY);
-                    orderRepository.save(order);
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PICKUP_READY,
+                        "Заказ готов к выдаче в ПВЗ: " + order.getPickupPointAddress());
+                    Thread.sleep(3000);
 
-                    // Имитация получения в ПВЗ
-                    Thread.sleep(5000);
-
-                    orderService.completeDelivery(order.getOrderNumber());
-                    log.info("✅ Order {} picked up from pickup point", order.getOrderNumber());
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PICKED_UP,
+                        "Заказ получен в пункте самовывоза");
+                    Thread.sleep(1000);
                 }
 
+                orderService.completeDelivery(order.getOrderNumber());
                 notificationService.sendDeliveryNotification(order);
+
+                log.info("✅ Order {} delivery completed", order.getOrderNumber());
 
             } catch (Exception e) {
                 log.error("Error in delivery for order: {}", order.getOrderNumber(), e);
