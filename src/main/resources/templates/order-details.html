@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,23 +14,183 @@
                 <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main class="container">
+        <div th:if="${param.success}" class="success-message">
+            Заказ успешно создан! Вы можете оплатить его ниже.
+        </div>
+
+        <div th:if="${param.payment == 'success'}" class="success-message">
+            Оплата прошла успешно!
+        </div>
+
+        <div th:if="${param.payment == 'failed'}" class="error-message">
+            Ошибка при оплате. Пожалуйста, попробуйте снова.
+        </div>
+
         <div id="order-details" class="order-details">
-            <div class="loading">Загрузка...</div>
+            <div th:if="${order == null}" class="loading">Загрузка...</div>
+
+            <div th:if="${order != null}">
+                <h2>Заказ #<span th:text="${order.orderNumber}"></span></h2>
+
+                <div class="order-info">
+                    <p><strong>Статус:</strong>
+                        <span class="status-badge" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
+                    </p>
+                    <p><strong>Дата создания:</strong>
+                        <span th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                    </p>
+                    <p><strong>Способ получения:</strong>
+                        <span th:text="${order.deliveryType == 'COURIER' ? 'Курьером' : 'Самовывоз'}"></span>
+                    </p>
+                    <p th:if="${order.deliveryAddress != null}">
+                        <strong>Адрес доставки:</strong> <span th:text="${order.deliveryAddress}"></span>
+                    </p>
+                    <p th:if="${order.pickupPointAddress != null}">
+                        <strong>Пункт самовывоза:</strong> <span th:text="${order.pickupPointAddress}"></span>
+                    </p>
+                    <p><strong>Способ оплаты:</strong>
+                        <span th:text="${order.paymentMethod != null ?
+                            (order.paymentMethod == 'card' ? 'Банковская карта' :
+                             order.paymentMethod == 'sbp' ? 'СБП' : 'Рассрочка') : 'Не выбран'}"></span>
+                    </p>
+                    <p><strong>Статус оплаты:</strong>
+                        <span th:text="${order.paymentStatus != null ? order.paymentStatus : 'Ожидает'}"></span>
+                    </p>
+                    <p th:if="${order.trackingNumber != null}">
+                        <strong>Трек-номер:</strong> <span th:text="${order.trackingNumber}"></span>
+                    </p>
+                </div>
+
+                <h3>Состав заказа</h3>
+                <table class="order-items-table">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Кол-во</th>
+                            <th>Цена</th>
+                            <th>Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="item : ${order.items}">
+                            <td th:text="${item.productName}"></td>
+                            <td th:text="${item.quantity}"></td>
+                            <td th:text="${#numbers.formatDecimal(item.price, 0, 2) + ' ₽'}"></td>
+                            <td th:text="${#numbers.formatDecimal(item.price * item.quantity, 0, 2) + ' ₽'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="order-total">
+                    <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}"></span></strong>
+                </div>
+
+                <!-- Кнопка оплаты для неоплаченных заказов -->
+                <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section">
+                    <h3>Оплатить заказ</h3>
+
+                    <form th:action="@{/orders/{id}/payment(id=${order.orderNumber})}" method="post">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+                        <div class="form-group">
+                            <label>
+                                <input type="radio" name="paymentMethod" value="card" checked>
+                                Банковская карта
+                            </label>
+                            <label>
+                                <input type="radio" name="paymentMethod" value="sbp">
+                                СБП
+                            </label>
+                        </div>
+
+                        <div id="card-details">
+                            <div class="form-group">
+                                <label for="cardNumber">Номер карты</label>
+                                <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="cardExpiry">Срок действия</label>
+                                    <input type="text" id="cardExpiry" name="cardExpiry" placeholder="MM/YY">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cardCvv">CVV</label>
+                                    <input type="text" id="cardCvv" name="cardCvv" placeholder="123">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="sbp-details" style="display: none;">
+                            <div class="form-group">
+                                <label for="phoneNumber">Номер телефона</label>
+                                <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="+7 (999) 123-45-67">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Оплатить</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="order-actions">
+                    <a href="/orders" class="btn btn-secondary">Все заказы</a>
+                    <a href="/catalog" class="btn btn-primary">Продолжить покупки</a>
+                </div>
+            </div>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Интернет-магазин МТС</p>
+            <p>&copy; 2026 Интернет-магазин</p>
         </div>
     </footer>
 
-    <script src="/js/order-details.js"></script>
+    <script>
+        // Переключение полей оплаты
+        document.addEventListener('DOMContentLoaded', function() {
+            const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+            const cardDetails = document.getElementById('card-details');
+            const sbpDetails = document.getElementById('sbp-details');
+
+            function togglePaymentFields() {
+                const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+
+                if (selectedMethod === 'card') {
+                    cardDetails.style.display = 'block';
+                    sbpDetails.style.display = 'none';
+                } else {
+                    cardDetails.style.display = 'none';
+                    sbpDetails.style.display = 'block';
+                }
+            }
+
+            paymentRadios.forEach(radio => {
+                radio.addEventListener('change', togglePaymentFields);
+            });
+
+            // Очищаем корзину после успешного заказа
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('success')) {
+                localStorage.removeItem('cart');
+                localStorage.removeItem('cartTotal');
+                console.log('Cart cleared after order');
+            }
+        });
+    </script>
 </body>
 </html>

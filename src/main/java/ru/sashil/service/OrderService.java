@@ -120,6 +120,8 @@ public class OrderService {
             // Отправка подтверждения
             notificationService.sendOrderConfirmation(order);
 
+            log.info("Order {} paid successfully, fulfillment will start automatically", orderNumber);
+
         } else if ("FAILED".equals(paymentResponse.getStatus())) {
             order.setPaymentStatus(PaymentStatus.FAILED);
             order.setStatus(OrderStatus.CANCELLED);

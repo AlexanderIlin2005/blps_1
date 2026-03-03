@@ -68,8 +68,8 @@ public class OrderController {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             User user = userService.findByUsername(auth.getName());
 
-            log.info("Creating order for user: {} with {} items", user.getUsername(),
-                productIds != null ? productIds.size() : 0);
+            log.info("Creating order for user: {} with {} items, payment method: {}",
+                user.getUsername(), productIds != null ? productIds.size() : 0, paymentMethod);
 
             // Создаем список товаров
             List<CartItemDTO> items = new ArrayList<>();
@@ -112,10 +112,30 @@ public class OrderController {
             OrderResponse response = orderService.createOrder(request);
             log.info("Order created successfully: {}", response.getOrderNumber());
 
-            // Очищаем корзину
-            model.addAttribute("orderNumber", response.getOrderNumber());
+            // Сразу обрабатываем оплату, если выбран метод оплаты
+            if (paymentMethod != null && !paymentMethod.isEmpty()) {
+                log.info("Processing payment for order {} with method {}", response.getOrderNumber(), paymentMethod);
 
-            return "redirect:/orders/" + response.getOrderNumber();
+                String paymentDetails = "";
+                if ("card".equals(paymentMethod)) {
+                    paymentDetails = cardNumber + "|" + cardExpiry + "|" + cardCvv;
+                } else if ("sbp".equals(paymentMethod)) {
+                    paymentDetails = phoneNumber;
+                }
+
+                OrderResponse paidOrder = orderService.processPayment(
+                    response.getOrderNumber(),
+                    paymentMethod,
+                    paymentDetails
+                );
+
+                log.info("Payment processed, status: {}", paidOrder.getPaymentStatus());
+            }
+
+            // Добавляем атрибут для очистки корзины на клиенте
+            model.addAttribute("clearCart", true);
+
+            return "redirect:/orders/" + response.getOrderNumber() + "?success=true";
 
         } catch (Exception e) {
             log.error("Error creating order: {}", e.getMessage(), e);
@@ -129,15 +149,33 @@ public class OrderController {
             @PathVariable String orderNumber,
             @RequestParam("paymentMethod") String paymentMethod,
             @RequestParam(value = "cardNumber", required = false) String cardNumber,
+            @RequestParam(value = "cardExpiry", required = false) String cardExpiry,
+            @RequestParam(value = "cardCvv", required = false) String cardCvv,
+            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
             Model model) {
 
-        OrderResponse response = orderService.processPayment(
-            orderNumber,
-            paymentMethod,
-            cardNumber
-        );
+        try {
+            log.info("Processing payment for order {} with method {}", orderNumber, paymentMethod);
 
-        return "redirect:/orders/" + orderNumber;
+            String paymentDetails = "";
+            if ("card".equals(paymentMethod)) {
+                paymentDetails = cardNumber + "|" + cardExpiry + "|" + cardCvv;
+            } else if ("sbp".equals(paymentMethod)) {
+                paymentDetails = phoneNumber;
+            }
+
+            OrderResponse response = orderService.processPayment(
+                orderNumber,
+                paymentMethod,
+                paymentDetails
+            );
+
+            return "redirect:/orders/" + orderNumber + "?payment=success";
+
+        } catch (Exception e) {
+            log.error("Error processing payment: {}", e.getMessage());
+            return "redirect:/orders/" + orderNumber + "?payment=failed";
+        }
     }
 
     // REST API для совместимости

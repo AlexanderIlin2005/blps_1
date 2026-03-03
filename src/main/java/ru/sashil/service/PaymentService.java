@@ -1,14 +1,25 @@
 package ru.sashil.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.sashil.dto.PaymentResponse;
+import ru.sashil.model.Order;
+import ru.sashil.model.OrderStatus;
+import ru.sashil.model.PaymentStatus;
+import ru.sashil.repository.OrderRepository;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class PaymentService {
+
+    private final OrderRepository orderRepository;
+    private final InventoryService inventoryService;
+    private final NotificationService notificationService;
 
     // Заглушка платежной системы
     public PaymentResponse processPayment(String orderNumber, String paymentMethod, Double amount, String details) {
@@ -23,6 +34,24 @@ public class PaymentService {
             response.setStatus("SUCCESS");
             response.setMessage("Payment processed successfully");
             log.info("Payment successful for order: {}", orderNumber);
+
+            // Асинхронно запускаем фулфилмент после успешной оплаты
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // Небольшая задержка для имитации реальной системы
+                    Thread.sleep(1000);
+
+                    Order order = orderRepository.findByOrderNumber(orderNumber)
+                        .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+                    log.info("Starting fulfillment for paid order: {}", orderNumber);
+                    inventoryService.processFulfillment(order);
+
+                } catch (Exception e) {
+                    log.error("Error starting fulfillment for order {}: {}", orderNumber, e.getMessage());
+                }
+            });
+
         } else {
             response.setStatus("FAILED");
             response.setMessage("Payment failed: insufficient funds");

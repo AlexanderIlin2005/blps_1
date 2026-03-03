@@ -30,20 +30,23 @@ public class DeliveryService {
 
     @Async
     public CompletableFuture<Void> handoverToDelivery(Order order) {
-        log.info("Handing over order to delivery: {}", order.getOrderNumber());
+        log.info("📦 Handing over order to delivery: {}", order.getOrderNumber());
 
         return CompletableFuture.supplyAsync(() -> {
             try {
                 // Генерация трек-номера
                 String trackingNumber = generateTrackingNumber();
+                log.info("Generated tracking number: {} for order: {}", trackingNumber, order.getOrderNumber());
 
                 // Обновление статуса через OrderService
                 orderService.updateTracking(order.getOrderNumber(), trackingNumber);
 
                 order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
                 orderRepository.save(order);
+                log.info("Order {} is out for delivery", order.getOrderNumber());
 
                 // Имитация доставки
+                log.info("Delivery in progress for order: {}...", order.getOrderNumber());
                 Thread.sleep(3000);
 
                 if (order.getDeliveryType() == DeliveryType.COURIER) {
@@ -52,6 +55,7 @@ public class DeliveryService {
                     Thread.sleep(2000);
 
                     orderService.completeDelivery(order.getOrderNumber());
+                    log.info("✅ Order {} delivered by courier", order.getOrderNumber());
 
                 } else {
                     // ПВЗ
@@ -63,9 +67,10 @@ public class DeliveryService {
                     Thread.sleep(5000);
 
                     orderService.completeDelivery(order.getOrderNumber());
+                    log.info("✅ Order {} picked up from pickup point", order.getOrderNumber());
                 }
 
-                log.info("Delivery completed for order: {}", order.getOrderNumber());
+                notificationService.sendDeliveryNotification(order);
 
             } catch (Exception e) {
                 log.error("Error in delivery for order: {}", order.getOrderNumber(), e);

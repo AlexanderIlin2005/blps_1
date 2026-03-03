@@ -1,5 +1,5 @@
 // Получение корзины из localStorage
-const cart = JSON.parse(localStorage.getItem('cart')) || [];
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
 const cartTotal = localStorage.getItem('cartTotal') || 0;
 
 // Отображение товаров в заказе
@@ -92,8 +92,28 @@ function togglePaymentFields() {
 
     if (paymentMethod === 'card') {
         cardDetails.style.display = 'block';
+        // Делаем поля карты обязательными
+        document.getElementById('cardNumber').required = true;
+        document.getElementById('cardExpiry').required = true;
+        document.getElementById('cardCvv').required = true;
+        if (document.getElementById('phoneNumber')) {
+            document.getElementById('phoneNumber').required = false;
+        }
     } else if (paymentMethod === 'sbp') {
         sbpDetails.style.display = 'block';
+        document.getElementById('cardNumber').required = false;
+        document.getElementById('cardExpiry').required = false;
+        document.getElementById('cardCvv').required = false;
+        if (document.getElementById('phoneNumber')) {
+            document.getElementById('phoneNumber').required = true;
+        }
+    } else {
+        document.getElementById('cardNumber').required = false;
+        document.getElementById('cardExpiry').required = false;
+        document.getElementById('cardCvv').required = false;
+        if (document.getElementById('phoneNumber')) {
+            document.getElementById('phoneNumber').required = false;
+        }
     }
 }
 
