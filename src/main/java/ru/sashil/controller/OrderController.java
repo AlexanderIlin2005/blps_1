@@ -189,19 +189,81 @@ public class OrderController {
         private final OrderService orderService;
         private final UserService userService;
 
+        @PostMapping("/create")
+        public ResponseEntity<OrderResponse> createOrder(
+                @RequestParam("customerName") String customerName,
+                @RequestParam("customerEmail") String customerEmail,
+                @RequestParam("customerPhone") String customerPhone,
+                @RequestParam("deliveryType") String deliveryType,
+                @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
+                @RequestParam("paymentMethod") String paymentMethod,
+                @RequestParam("items[0].productId") String productId,
+                @RequestParam("items[0].productName") String productName,
+                @RequestParam("items[0].quantity") Integer quantity,
+                @RequestParam("items[0].price") Double price,
+                Authentication auth) {
+
+            User user = userService.findByUsername(auth.getName());
+
+            CreateOrderRequest request = new CreateOrderRequest();
+            request.setCustomerId(user.getId());
+            request.setCustomerName(customerName);
+            request.setCustomerEmail(customerEmail);
+            request.setCustomerPhone(customerPhone);
+            request.setDeliveryType("COURIER".equals(deliveryType) ?
+                ru.sashil.model.DeliveryType.COURIER : ru.sashil.model.DeliveryType.PICKUP);
+            request.setDeliveryAddress(deliveryAddress);
+
+            List<CartItemDTO> items = new java.util.ArrayList<>();
+            items.add(new CartItemDTO(productId, productName, quantity, price));
+            request.setItems(items);
+
+            OrderResponse response = orderService.createOrder(request);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(response);
+        }
+
         @GetMapping("/{orderNumber}")
         public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNumber, Authentication auth) {
             User user = userService.findByUsername(auth.getName());
             return ResponseEntity.ok(orderService.getOrderForUser(orderNumber, user.getId()));
         }
 
-        @GetMapping("/customer/{customerId}")
-        public ResponseEntity<List<OrderResponse>> getCustomerOrders(@PathVariable Long customerId, Authentication auth) {
+        @PostMapping("/{orderNumber}/payment")
+        public ResponseEntity<OrderResponse> processPayment(
+                @PathVariable String orderNumber,
+                @RequestParam("paymentMethod") String paymentMethod,
+                @RequestParam(value = "cardNumber", required = false) String cardNumber,
+                @RequestParam(value = "cardExpiry", required = false) String cardExpiry,
+                @RequestParam(value = "cardCvv", required = false) String cardCvv,
+                @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
+                Authentication auth) {
+
+            log.info("REST request to process payment for order: {} with method: {}", orderNumber, paymentMethod);
+            
+            // Проверяем права доступа к заказу перед оплатой
             User user = userService.findByUsername(auth.getName());
-            if (!user.getId().equals(customerId)) {
-                return ResponseEntity.status(403).build();
+            orderService.getOrderForUser(orderNumber, user.getId());
+
+            String paymentDetails = "";
+            if ("card".equals(paymentMethod)) {
+                paymentDetails = cardNumber + "|" + cardExpiry + "|" + cardCvv;
+            } else if ("sbp".equals(paymentMethod)) {
+                paymentDetails = phoneNumber;
             }
-            return ResponseEntity.ok(orderService.getCustomerOrders(customerId));
+
+            OrderResponse response = orderService.processPayment(
+                orderNumber,
+                paymentMethod,
+                paymentDetails
+            );
+
+            return ResponseEntity.ok(response);
+        }
+
+        @GetMapping("/customer")
+        public ResponseEntity<List<OrderResponse>> getCustomerOrders(Authentication auth) {
+            User user = userService.findByUsername(auth.getName());
+            return ResponseEntity.ok(orderService.getCustomerOrders(user.getId()));
         }
     }
 }

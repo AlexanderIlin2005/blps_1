@@ -48,7 +48,7 @@ public class SecurityConfig {
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/catalog", "/register", "/login").permitAll()
+                .requestMatchers("/", "/catalog", "/register", "/login", "/error").permitAll()
                 .requestMatchers("/css/**", "/js/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/checkout", "/orders/**", "/profile").authenticated()

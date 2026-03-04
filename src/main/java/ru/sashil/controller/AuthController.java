@@ -14,6 +14,9 @@ import ru.sashil.dto.UserRegistrationDTO;
 import ru.sashil.model.User;
 import ru.sashil.service.UserService;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 @Controller
 @RequiredArgsConstructor
 @Slf4j
@@ -54,5 +57,30 @@ public class AuthController {
         User user = userService.findByUsername(auth.getName());
         model.addAttribute("user", user);
         return "profile";
+    }
+
+    // API для получения данных пользователя
+    @RestController
+    @RequestMapping("/api/user")
+    @RequiredArgsConstructor
+    public static class UserApiController {
+        private final UserService userService;
+
+        @GetMapping("/me")
+        public ResponseEntity<UserDTO> getCurrentUser(Authentication auth) {
+            log.info("REST request to get current user: {}", auth.getName());
+            User user = userService.findByUsername(auth.getName());
+            
+            UserDTO dto = new UserDTO();
+            dto.setId(user.getId());
+            dto.setUsername(user.getUsername());
+            dto.setEmail(user.getEmail());
+            dto.setFullName(user.getFullName());
+            dto.setPhone(user.getPhone());
+            dto.setRole(user.getRole());
+            dto.setCreatedAt(user.getCreatedAt());
+            
+            return ResponseEntity.ok(dto);
+        }
     }
 }
