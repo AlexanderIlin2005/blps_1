@@ -29,6 +29,7 @@ public class SecurityConfig {
                 .requestMatchers("/", "/catalog", "/api/products/**").permitAll()
                 .requestMatchers("/css/**", "/js/**").permitAll()
                 .requestMatchers("/register", "/login").permitAll()
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/checkout", "/orders/**").authenticated()
                 .requestMatchers("/profile").authenticated()
                 .anyRequest().authenticated()

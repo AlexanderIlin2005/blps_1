@@ -31,6 +31,9 @@ dependencies {
     implementation 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
+    // Documentation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation platform('org.junit:junit-bom:5.10.0')
