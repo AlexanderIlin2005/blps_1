@@ -89,21 +89,28 @@ public class PaymentService {
 
             if (externalResponse != null) {
                 response.setPaymentId(externalResponse.getTransaction_id());
-                // Мапим статус "success" (из API) в "SUCCESS" (используемый в OrderService)
-                if ("success".equalsIgnoreCase(externalResponse.getStatus())) {
+                // Мок возвращает "APPROVED" при успехе
+                if ("APPROVED".equalsIgnoreCase(externalResponse.getStatus())) {
                     response.setStatus("SUCCESS");
+                    response.setMessage("Payment approved: " + externalResponse.getMessage());
                 } else {
+                    // Обрабатываем "DECLINED", "BLOCKED" и другие
                     response.setStatus("FAILED");
+                    response.setMessage(externalResponse.getStatus() + ": " + externalResponse.getMessage());
                 }
-                response.setMessage(externalResponse.getMessage());
             } else {
                 response.setStatus("FAILED");
-                response.setMessage("No response from payment service");
+                response.setMessage("Empty response from payment service");
             }
         } catch (Exception e) {
             log.error("Error calling external payment service: {}", e.getMessage());
             response.setStatus("FAILED");
-            response.setMessage("Payment service error: " + e.getMessage());
+            // Проверяем на таймаут
+            if (e.getMessage().contains("Read timed out")) {
+                response.setMessage("Payment timeout (5s delay simulated)");
+            } else {
+                response.setMessage("Payment system error: " + e.getMessage());
+            }
         }
 
         if ("SUCCESS".equals(response.getStatus())) {
