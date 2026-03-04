@@ -59,7 +59,7 @@ public class AuthController {
         return "profile";
     }
 
-    // API для получения данных пользователя
+
     @RestController
     @RequestMapping("/api/user")
     @RequiredArgsConstructor

@@ -32,10 +32,10 @@
         </div>
 
         <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post">
-            <!-- CSRF токен -->
+
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
-            <!-- Скрытые поля для товаров из корзины будут добавлены через JavaScript -->
+
             <div id="cart-items-container"></div>
 
             <div class="form-section">

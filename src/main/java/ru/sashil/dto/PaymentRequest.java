@@ -14,5 +14,5 @@ public class PaymentRequest {
     private String cardNumber;
     private String cardExpiry;
     private String cardCvv;
-    private String phoneNumber; // для SBP
+    private String phoneNumber; 
 }

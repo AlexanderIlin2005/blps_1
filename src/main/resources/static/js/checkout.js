@@ -1,8 +1,8 @@
-// Получение корзины из localStorage
+
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
 const cartTotal = localStorage.getItem('cartTotal') || 0;
 
-// Отображение товаров в заказе
+
 function displayOrderItems() {
     const orderItems = document.getElementById('order-items');
     const orderTotal = document.getElementById('order-total');
@@ -16,7 +16,7 @@ function displayOrderItems() {
     let itemsHtml = '<table class="order-items-table">';
     itemsHtml += '<tr><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr>';
 
-    // Очищаем контейнер для скрытых полей
+
     cartContainer.innerHTML = '';
 
     cart.forEach((item, index) => {
@@ -30,7 +30,7 @@ function displayOrderItems() {
             </tr>
         `;
 
-        // Добавляем скрытые поля для каждого товара
+
         cartContainer.innerHTML += `
             <input type="hidden" name="items[${index}].productId" value="${item.sku}">
             <input type="hidden" name="items[${index}].productName" value="${item.name}">
@@ -44,7 +44,7 @@ function displayOrderItems() {
     orderTotal.textContent = Number(cartTotal).toLocaleString();
 }
 
-// Переключение полей доставки
+
 function toggleDeliveryFields() {
     const courierFields = document.getElementById('courier-fields');
     const pickupFields = document.getElementById('pickup-fields');
@@ -74,7 +74,7 @@ function toggleDeliveryFields() {
     }
 }
 
-// Переключение полей оплаты
+
 function togglePaymentFields() {
     const cardDetails = document.getElementById('card-details');
     const sbpDetails = document.getElementById('sbp-details');
@@ -92,7 +92,7 @@ function togglePaymentFields() {
 
     if (paymentMethod === 'card') {
         cardDetails.style.display = 'block';
-        // Делаем поля карты обязательными
+
         document.getElementById('cardNumber').required = true;
         document.getElementById('cardExpiry').required = true;
         document.getElementById('cardCvv').required = true;
@@ -117,11 +117,11 @@ function togglePaymentFields() {
     }
 }
 
-// Инициализация
+
 document.addEventListener('DOMContentLoaded', () => {
     displayOrderItems();
 
-    // Добавляем обработчики
+
     document.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
         radio.addEventListener('change', toggleDeliveryFields);
     });
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', togglePaymentFields);
     });
 
-    // Устанавливаем начальное состояние
+
     toggleDeliveryFields();
     togglePaymentFields();
 });

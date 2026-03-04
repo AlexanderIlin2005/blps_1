@@ -20,7 +20,7 @@ public class ScheduledTasksService {
     private final OrderRepository orderRepository;
     private final OrderService orderService;
 
-    // Проверка неоплаченных заказов каждые 5 минут
+    
     @Scheduled(fixedDelay = 300000)
     public void checkUnpaidOrders() {
         log.info("Checking for unpaid orders...");

@@ -28,7 +28,7 @@ public class PaymentService {
     @Value("${payment.service.url}")
     private String paymentServiceUrl;
 
-    // Используем @Lazy для разрыва цикла
+    
     private InventoryService inventoryService;
 
     @Autowired
@@ -36,7 +36,7 @@ public class PaymentService {
         this.inventoryService = inventoryService;
     }
 
-    // Внешний запрос к платежной системе
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -47,7 +47,7 @@ public class PaymentService {
         private String card_number;
     }
 
-    // Внешний ответ от платежной системы
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -69,7 +69,7 @@ public class PaymentService {
                 cardNumber = parts[0];
             }
         } else if ("sbp".equals(paymentMethod)) {
-            cardNumber = details; // Используем телефон как номер карты для эмуляции
+            cardNumber = details; 
         }
 
         ExternalPaymentRequest externalRequest = new ExternalPaymentRequest(
@@ -89,12 +89,12 @@ public class PaymentService {
 
             if (externalResponse != null) {
                 response.setPaymentId(externalResponse.getTransaction_id());
-                // Мок возвращает "APPROVED" при успехе
+                
                 if ("APPROVED".equalsIgnoreCase(externalResponse.getStatus())) {
                     response.setStatus("SUCCESS");
                     response.setMessage("Payment approved: " + externalResponse.getMessage());
                 } else {
-                    // Обрабатываем "DECLINED", "BLOCKED" и другие
+                    
                     response.setStatus("FAILED");
                     response.setMessage(externalResponse.getStatus() + ": " + externalResponse.getMessage());
                 }
@@ -105,7 +105,7 @@ public class PaymentService {
         } catch (Exception e) {
             log.error("Error calling external payment service: {}", e.getMessage());
             response.setStatus("FAILED");
-            // Проверяем на таймаут
+            
             if (e.getMessage().contains("Read timed out")) {
                 response.setMessage("Payment timeout (5s delay simulated)");
             } else {
@@ -116,7 +116,7 @@ public class PaymentService {
         if ("SUCCESS".equals(response.getStatus())) {
             log.info("Payment successful for order: {}", orderNumber);
 
-            // Асинхронно запускаем фулфилмент после успешной оплаты
+            
             CompletableFuture.runAsync(() -> {
                 try {
                     Order order = orderRepository.findByOrderNumber(orderNumber)

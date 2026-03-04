@@ -1,8 +1,8 @@
-// Получение номера заказа из URL
+
 const pathParts = window.location.pathname.split('/');
 const orderNumber = pathParts[pathParts.length - 1];
 
-// Загрузка деталей заказа
+
 async function loadOrderDetails() {
     try {
         const response = await fetch(`/api/orders/${orderNumber}`);
@@ -25,7 +25,7 @@ async function loadOrderDetails() {
     }
 }
 
-// Отображение деталей заказа
+
 function displayOrderDetails(order) {
     const container = document.getElementById('order-details');
 
@@ -76,7 +76,7 @@ function displayOrderDetails(order) {
     `;
 }
 
-// Получение класса статуса
+
 function getStatusClass(status) {
     const statusClasses = {
         'PAID': 'status-completed',
@@ -91,7 +91,7 @@ function getStatusClass(status) {
     return statusClasses[status] || 'status-pending';
 }
 
-// Получение текста статуса
+
 function getStatusText(status) {
     const statusMap = {
         'CART': 'Корзина',
@@ -115,5 +115,5 @@ function getStatusText(status) {
     return statusMap[status] || status;
 }
 
-// Инициализация
+
 document.addEventListener('DOMContentLoaded', loadOrderDetails);

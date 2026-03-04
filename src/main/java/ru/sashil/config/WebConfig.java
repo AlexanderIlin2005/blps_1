@@ -16,7 +16,7 @@ public class WebConfig implements WebMvcConfigurer {
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
             .setConnectTimeout(Duration.ofSeconds(2))
-            .setReadTimeout(Duration.ofSeconds(3)) // 3 seconds timeout to catch the 5-second delay (.88)
+            .setReadTimeout(Duration.ofSeconds(3))
             .build();
     }
 }

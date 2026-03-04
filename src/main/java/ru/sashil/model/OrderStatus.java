@@ -1,21 +1,21 @@
 package ru.sashil.model;
 
 public enum OrderStatus {
-    CART,               // Корзина (просмотр каталога)
-    CHECKOUT,           // Оформление
-    PAYMENT_PENDING,    // Ожидание оплаты
-    PAYMENT_PROCESSING, // Оплата обрабатывается
-    PAID,               // Оплачено
-    CONFIRMED,          // Подтверждено
-    PROCESSING,         // В обработке (склад)
-    PACKING,            // Сборка
-    READY_FOR_SHIPPING, // Готов к отправке
-    SHIPPED,            // Отправлен
-    OUT_FOR_DELIVERY,   // У курьера
-    DELIVERED,          // Доставлен
-    PICKUP_READY,       // Готов к выдаче в ПВЗ
-    PICKED_UP,          // Получен в ПВЗ
-    COMPLETED,          // Завершен
-    CANCELLED,          // Отменен
-    REFUNDED            // Возвращен
+    CART,               
+    CHECKOUT,           
+    PAYMENT_PENDING,    
+    PAYMENT_PROCESSING, 
+    PAID,               
+    CONFIRMED,          
+    PROCESSING,         
+    PACKING,            
+    READY_FOR_SHIPPING, 
+    SHIPPED,            
+    OUT_FOR_DELIVERY,   
+    DELIVERED,          
+    PICKUP_READY,       
+    PICKED_UP,          
+    COMPLETED,          
+    CANCELLED,          
+    REFUNDED            
 }

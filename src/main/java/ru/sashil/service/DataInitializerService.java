@@ -19,7 +19,7 @@ public class DataInitializerService {
         log.info("Initializing sample data...");
 
         if (productRepository.count() == 0) {
-            // Создаем тестовые товары
+            
             Product phone = new Product();
             phone.setSku("IPHONE-14-PRO");
             phone.setName("iPhone 14 Pro");

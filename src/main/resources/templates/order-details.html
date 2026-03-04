@@ -98,7 +98,7 @@
                     <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}" id="order-total"></span></strong>
                 </div>
 
-                <!-- История статусов -->
+
                 <div class="status-history">
                     <h3>История статусов</h3>
                     <div class="timeline" id="status-timeline">
@@ -113,7 +113,7 @@
                     </div>
                 </div>
 
-                <!-- Кнопка оплаты для неоплаченных заказов -->
+
                 <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section" id="payment-section">
                     <h3>Оплатить заказ</h3>
 
@@ -267,7 +267,7 @@
             }
         }
 
-        // Очищаем корзину после успешного заказа
+
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('success')) {
@@ -276,7 +276,7 @@
                 console.log('Cart cleared after order');
             }
 
-            // Запускаем автообновление статуса
+
             const orderNumber = document.getElementById('order-number')?.textContent;
             if (orderNumber) {
                 startAutoRefresh(orderNumber);
@@ -286,7 +286,7 @@
         let refreshInterval;
 
         function startAutoRefresh(orderNumber) {
-            // Обновляем каждые 5 секунд
+
             refreshInterval = setInterval(() => refreshOrderStatus(orderNumber), 5000);
         }
 
@@ -315,13 +315,13 @@
                 }
             }
 
-            // Обновляем статус оплаты
+
             const paymentStatusElem = document.getElementById('payment-status');
             if (paymentStatusElem && order.paymentStatus) {
                 paymentStatusElem.textContent = order.paymentStatus;
             }
 
-            // Обновляем трек-номер
+
             const trackingContainer = document.getElementById('tracking-container');
             const trackingNumberElem = document.getElementById('tracking-number');
 
@@ -345,12 +345,12 @@
             const timeline = document.getElementById('status-timeline');
             if (!timeline) return;
 
-            // Получаем текущее количество элементов в истории
+
             const currentItems = timeline.children.length;
 
-            // Если история изменилась (появились новые записи)
+
             if (history.length > currentItems) {
-                // Очищаем и перестраиваем всю историю
+
                 timeline.innerHTML = '';
 
                 history.forEach(item => {
@@ -383,7 +383,7 @@
                     timeline.appendChild(itemDiv);
                 });
 
-                // Подсвечиваем новые записи
+
                 const newItems = timeline.children;
                 for (let i = 0; i < newItems.length; i++) {
                     if (i >= currentItems) {
@@ -415,7 +415,7 @@
             }
         }
 
-        // Останавливаем автообновление при уходе со страницы
+
         window.addEventListener('beforeunload', function() {
             if (refreshInterval) {
                 clearInterval(refreshInterval);

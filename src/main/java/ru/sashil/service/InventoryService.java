@@ -23,7 +23,7 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
 
-    // Используем @Lazy для разрыва цикла
+    
     private OrderService orderService;
     private DeliveryService deliveryService;
 
@@ -43,12 +43,12 @@ public class InventoryService {
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Обновляем статус на PROCESSING
+                
                 orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PROCESSING,
                     "Начата обработка заказа на складе");
                 Thread.sleep(2000);
 
-                // Проверка наличия на складе
+                
                 log.info("Checking stock for order: {}", order.getOrderNumber());
                 boolean allInStock = checkStock(order);
 
@@ -63,7 +63,7 @@ public class InventoryService {
                         "Заказ собран и упакован, готов к передаче в доставку");
                     Thread.sleep(1000);
 
-                    // Передача в доставку
+                    
                     log.info("Handing over to delivery service: {}", order.getOrderNumber());
                     deliveryService.handoverToDelivery(order);
 
@@ -74,7 +74,7 @@ public class InventoryService {
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
                         "Товара нет в наличии, заказ отменен");
 
-                    // Здесь должен быть возврат средств
+                    
                     notificationService.sendOutOfStockNotification(order);
                 }
             } catch (Exception e) {
@@ -94,7 +94,7 @@ public class InventoryService {
 
             boolean inStock = product.getStockQuantity() >= item.getQuantity();
             if (inStock) {
-                // Резервируем товар
+                
                 product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
                 productRepository.save(product);
                 log.info("Reserved {} units of product: {}", item.getQuantity(), product.getName());

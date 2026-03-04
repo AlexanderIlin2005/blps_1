@@ -22,7 +22,7 @@ public class UserService {
     public UserDTO register(UserRegistrationDTO registrationDTO) {
         log.info("Registering new user: {}", registrationDTO.getUsername());
 
-        // Проверка существования
+        
         if (userRepository.existsByUsername(registrationDTO.getUsername())) {
             throw new RuntimeException("Username already exists");
         }
@@ -30,12 +30,12 @@ public class UserService {
             throw new RuntimeException("Email already exists");
         }
 
-        // Проверка паролей
+        
         if (!registrationDTO.getPassword().equals(registrationDTO.getConfirmPassword())) {
             throw new RuntimeException("Passwords do not match");
         }
 
-        // Создание пользователя
+        
         User user = new User();
         user.setUsername(registrationDTO.getUsername());
 

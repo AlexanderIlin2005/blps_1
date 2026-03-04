@@ -24,22 +24,22 @@ public class DeliveryService {
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Генерация трек-номера
+                
                 String trackingNumber = generateTrackingNumber();
                 log.info("Generated tracking number: {} for order: {}", trackingNumber, order.getOrderNumber());
 
-                // Обновление статуса через OrderService
+                
                 orderService.updateTracking(order.getOrderNumber(), trackingNumber);
                 Thread.sleep(1000);
 
                 orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
                     "Заказ передан в службу доставки, трек-номер: " + trackingNumber);
 
-                // Имитация доставки
+                
                 log.info("Delivery in progress for order: {}...", order.getOrderNumber());
 
                 if (order.getDeliveryType() == DeliveryType.COURIER) {
-                    // Курьерская доставка
+                    
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
                         "Курьер выехал по адресу: " + order.getDeliveryAddress());
                     Thread.sleep(4000);
@@ -49,7 +49,7 @@ public class DeliveryService {
                     Thread.sleep(1000);
 
                 } else {
-                    // ПВЗ
+                    
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PICKUP_READY,
                         "Заказ готов к выдаче в ПВЗ: " + order.getPickupPointAddress());
                     Thread.sleep(3000);

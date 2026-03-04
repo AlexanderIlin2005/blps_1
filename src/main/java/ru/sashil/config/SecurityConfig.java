@@ -21,10 +21,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * Конфигурация для API: Basic Auth и без CSRF.
-     * Срабатывает только для путей /api/**
-     */
+
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -40,10 +37,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * Конфигурация для Web-интерфейса: Form Login и CSRF включен.
-     * Срабатывает для всех остальных путей.
-     */
+
     @Bean
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http

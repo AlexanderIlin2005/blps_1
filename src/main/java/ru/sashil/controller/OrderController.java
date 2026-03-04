@@ -74,7 +74,7 @@ public class OrderController {
             log.info("Creating order for user: {} with {} items, payment method: {}",
                 user.getUsername(), productIds != null ? productIds.size() : 0, paymentMethod);
 
-            // Создаем список товаров
+            
             List<CartItemDTO> items = new ArrayList<>();
             if (productIds != null && !productIds.isEmpty()) {
                 for (int i = 0; i < productIds.size(); i++) {
@@ -87,7 +87,7 @@ public class OrderController {
                 }
             }
 
-            // Создаем запрос
+            
             CreateOrderRequest request = new CreateOrderRequest();
             request.setCustomerId(user.getId());
             request.setCustomerName(customerName);
@@ -101,7 +101,7 @@ public class OrderController {
                 request.setDeliveryAddress(deliveryAddress);
             } else {
                 request.setPickupPointId(pickupPointId);
-                // Здесь можно добавить получение адреса ПВЗ по ID
+                
                 if ("p1".equals(pickupPointId)) {
                     request.setPickupPointAddress("ул. Тверская, 7");
                 } else if ("p2".equals(pickupPointId)) {
@@ -111,11 +111,11 @@ public class OrderController {
                 }
             }
 
-            // Создаем заказ
+            
             OrderResponse response = orderService.createOrder(request);
             log.info("Order created successfully: {}", response.getOrderNumber());
 
-            // Сразу обрабатываем оплату, если выбран метод оплаты
+            
             if (paymentMethod != null && !paymentMethod.isEmpty()) {
                 log.info("Processing payment for order {} with method {}", response.getOrderNumber(), paymentMethod);
 
@@ -135,7 +135,7 @@ public class OrderController {
                 log.info("Payment processed, status: {}", paidOrder.getPaymentStatus());
             }
 
-            // Добавляем атрибут для очистки корзины на клиенте
+
             model.addAttribute("clearCart", true);
 
             return "redirect:/orders/" + response.getOrderNumber() + "?success=true";
@@ -181,7 +181,7 @@ public class OrderController {
         }
     }
 
-    // REST API для совместимости
+
     @RestController
     @RequestMapping("/api/orders")
     @RequiredArgsConstructor
@@ -240,7 +240,7 @@ public class OrderController {
 
             log.info("REST request to process payment for order: {} with method: {}", orderNumber, paymentMethod);
             
-            // Проверяем права доступа к заказу перед оплатой
+            
             User user = userService.findByUsername(auth.getName());
             orderService.getOrderForUser(orderNumber, user.getId());
 

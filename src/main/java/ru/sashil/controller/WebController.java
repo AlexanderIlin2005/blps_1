@@ -29,7 +29,7 @@ public class WebController {
 
     @GetMapping("/checkout")
     public String checkout(Model model) {
-        // Получаем текущего пользователя
+        
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
             try {

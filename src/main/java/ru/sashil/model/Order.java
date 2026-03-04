@@ -21,12 +21,12 @@ public class Order {
     @Column(unique = true)
     private String orderNumber;
 
-    // Связь с пользователем
+    
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    // Оставляем старые поля для обратной совместимости
+    
     private Long customerId;
     private String customerName;
     private String customerEmail;

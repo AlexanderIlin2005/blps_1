@@ -34,7 +34,7 @@ public class OrderService {
     private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
 
-    // Используем @Lazy для разрыва цикла
+    
     private PaymentService paymentService;
     private InventoryService inventoryService;
 
@@ -55,7 +55,7 @@ public class OrderService {
         User user = userRepository.findById(request.getCustomerId())
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Проверка наличия товаров
+        
         for (CartItemDTO item : request.getItems()) {
             Product product = productRepository.findBySku(item.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
@@ -65,10 +65,10 @@ public class OrderService {
             }
         }
 
-        // Создание заказа
+        
         Order order = new Order();
         order.setOrderNumber(generateOrderNumber());
-        order.setUser(user); // Устанавливаем связь с пользователем
+        order.setUser(user); 
         order.setCustomerId(request.getCustomerId());
         order.setCustomerName(request.getCustomerName());
         order.setCustomerEmail(request.getCustomerEmail());
@@ -85,7 +85,7 @@ public class OrderService {
             order.setPickupPointAddress(request.getPickupPointAddress());
         }
 
-        // Добавление товаров
+        
         List<OrderItem> orderItems = new ArrayList<>();
         double subtotal = 0;
 
@@ -95,9 +95,9 @@ public class OrderService {
 
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(item.getProductId());
-            orderItem.setProductName(product.getName()); // Берем название из базы
+            orderItem.setProductName(product.getName()); 
             orderItem.setQuantity(item.getQuantity());
-            orderItem.setPrice(product.getPrice()); // КРИТИЧЕСКИ ВАЖНО: Берем цену из базы!
+            orderItem.setPrice(product.getPrice()); 
             orderItem.setTotal(product.getPrice() * item.getQuantity());
             orderItem.setOrder(order);
 
@@ -113,7 +113,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // Записываем историю
+        
         addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Заказ создан");
 
         log.info("Order created with number: {}", savedOrder.getOrderNumber());
@@ -136,7 +136,7 @@ public class OrderService {
         addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,
             "Обработка платежа методом: " + getPaymentMethodName(paymentMethod));
 
-        // Заглушка платежной системы
+        
         PaymentResponse paymentResponse = paymentService.processPayment(
             orderNumber,
             paymentMethod,
@@ -154,7 +154,7 @@ public class OrderService {
             addStatusHistory(order, OrderStatus.PAID,
                 "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
 
-            // Отправка подтверждения
+            
             notificationService.sendOrderConfirmation(order);
 
             log.info("Order {} paid successfully, fulfillment will start automatically", orderNumber);
@@ -311,7 +311,7 @@ public class OrderService {
             .collect(Collectors.toList());
         response.setItems(items);
 
-        // Загружаем историю статусов
+        
         List<OrderStatusHistory> history = historyRepository.findByOrderOrderByChangedAtDesc(order);
         List<OrderResponse.StatusHistoryDTO> historyDTOs = history.stream()
             .map(h -> new OrderResponse.StatusHistoryDTO(

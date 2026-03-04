@@ -27,7 +27,7 @@ public class OrderResponse {
     private PaymentStatus paymentStatus;
     private String trackingNumber;
 
-    // История статусов
+    
     private List<StatusHistoryDTO> statusHistory;
 
     @Data
