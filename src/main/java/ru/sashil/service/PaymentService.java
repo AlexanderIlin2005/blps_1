@@ -1,15 +1,19 @@
 package ru.sashil.service;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import ru.sashil.dto.PaymentResponse;
 import ru.sashil.model.Order;
 import ru.sashil.repository.OrderRepository;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -19,6 +23,10 @@ public class PaymentService {
 
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
+    private final RestTemplate restTemplate;
+
+    @Value("${payment.service.url}")
+    private String paymentServiceUrl;
 
     // Используем @Lazy для разрыва цикла
     private InventoryService inventoryService;
@@ -28,26 +36,82 @@ public class PaymentService {
         this.inventoryService = inventoryService;
     }
 
-    // Заглушка платежной системы
+    // Внешний запрос к платежной системе
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExternalPaymentRequest {
+        private String order_id;
+        private Double amount;
+        private String currency = "RUB";
+        private String card_number;
+    }
+
+    // Внешний ответ от платежной системы
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExternalPaymentResponse {
+        private String transaction_id;
+        private String status;
+        private String message;
+        private String timestamp;
+    }
+
     public PaymentResponse processPayment(String orderNumber, String paymentMethod, Double amount, String details) {
-        log.info("Processing payment - Order: {}, Method: {}, Amount: {}", orderNumber, paymentMethod, amount);
+        log.info("Processing payment via external microservice - Order: {}, Method: {}, Amount: {}", 
+            orderNumber, paymentMethod, amount);
 
-        // Имитация обработки платежа
+        String cardNumber = "unknown";
+        if ("card".equals(paymentMethod) && details != null) {
+            String[] parts = details.split("\\|");
+            if (parts.length > 0) {
+                cardNumber = parts[0];
+            }
+        } else if ("sbp".equals(paymentMethod)) {
+            cardNumber = details; // Используем телефон как номер карты для эмуляции
+        }
+
+        ExternalPaymentRequest externalRequest = new ExternalPaymentRequest(
+            orderNumber,
+            amount,
+            "RUB",
+            cardNumber
+        );
+
         PaymentResponse response = new PaymentResponse();
-        response.setPaymentId("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        try {
+            ExternalPaymentResponse externalResponse = restTemplate.postForObject(
+                paymentServiceUrl, 
+                externalRequest, 
+                ExternalPaymentResponse.class
+            );
 
-        // Имитация успешного платежа (90%成功率)
-        if (Math.random() < 0.9) {
-            response.setStatus("SUCCESS");
-            response.setMessage("Payment processed successfully");
+            if (externalResponse != null) {
+                response.setPaymentId(externalResponse.getTransaction_id());
+                // Мапим статус "success" (из API) в "SUCCESS" (используемый в OrderService)
+                if ("success".equalsIgnoreCase(externalResponse.getStatus())) {
+                    response.setStatus("SUCCESS");
+                } else {
+                    response.setStatus("FAILED");
+                }
+                response.setMessage(externalResponse.getMessage());
+            } else {
+                response.setStatus("FAILED");
+                response.setMessage("No response from payment service");
+            }
+        } catch (Exception e) {
+            log.error("Error calling external payment service: {}", e.getMessage());
+            response.setStatus("FAILED");
+            response.setMessage("Payment service error: " + e.getMessage());
+        }
+
+        if ("SUCCESS".equals(response.getStatus())) {
             log.info("Payment successful for order: {}", orderNumber);
 
             // Асинхронно запускаем фулфилмент после успешной оплаты
             CompletableFuture.runAsync(() -> {
                 try {
-                    // Небольшая задержка для имитации реальной системы
-                    Thread.sleep(1000);
-
                     Order order = orderRepository.findByOrderNumber(orderNumber)
                         .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
@@ -58,11 +122,9 @@ public class PaymentService {
                     log.error("Error starting fulfillment for order {}: {}", orderNumber, e.getMessage());
                 }
             });
-
         } else {
-            response.setStatus("FAILED");
-            response.setMessage("Payment failed: insufficient funds");
-            log.warn("Payment failed for order: {}", orderNumber);
+            log.warn("Payment failed for order: {}. Status: {}, Message: {}", 
+                orderNumber, response.getStatus(), response.getMessage());
         }
 
         return response;
