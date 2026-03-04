@@ -19,11 +19,4 @@ public class WebConfig implements WebMvcConfigurer {
             .setReadTimeout(Duration.ofSeconds(3)) // 3 seconds timeout to catch the 5-second delay (.88)
             .build();
     }
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-            .allowedOrigins("*")
-            .allowedMethods("GET", "POST", "PUT", "DELETE");
-    }
 }

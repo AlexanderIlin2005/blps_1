@@ -40,7 +40,10 @@ public class OrderController {
 
     @GetMapping("/{orderNumber}")
     public String getOrder(@PathVariable String orderNumber, Model model) {
-        OrderResponse order = orderService.getOrder(orderNumber);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userService.findByUsername(auth.getName());
+        
+        OrderResponse order = orderService.getOrderForUser(orderNumber, user.getId());
         model.addAttribute("order", order);
         return "order-details";
     }
@@ -184,14 +187,20 @@ public class OrderController {
     @RequiredArgsConstructor
     public static class OrderApiController {
         private final OrderService orderService;
+        private final UserService userService;
 
         @GetMapping("/{orderNumber}")
-        public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNumber) {
-            return ResponseEntity.ok(orderService.getOrder(orderNumber));
+        public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNumber, Authentication auth) {
+            User user = userService.findByUsername(auth.getName());
+            return ResponseEntity.ok(orderService.getOrderForUser(orderNumber, user.getId()));
         }
 
         @GetMapping("/customer/{customerId}")
-        public ResponseEntity<List<OrderResponse>> getCustomerOrders(@PathVariable Long customerId) {
+        public ResponseEntity<List<OrderResponse>> getCustomerOrders(@PathVariable Long customerId, Authentication auth) {
+            User user = userService.findByUsername(auth.getName());
+            if (!user.getId().equals(customerId)) {
+                return ResponseEntity.status(403).build();
+            }
             return ResponseEntity.ok(orderService.getCustomerOrders(customerId));
         }
     }

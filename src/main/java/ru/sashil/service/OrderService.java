@@ -14,6 +14,7 @@ import ru.sashil.model.*;
 import ru.sashil.repository.OrderRepository;
 import ru.sashil.repository.OrderStatusHistoryRepository;
 import ru.sashil.repository.ProductRepository;
+import ru.sashil.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -29,6 +30,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
 
@@ -50,6 +52,9 @@ public class OrderService {
     public OrderResponse createOrder(CreateOrderRequest request) {
         log.info("Creating new order for customer: {}", request.getCustomerName());
 
+        User user = userRepository.findById(request.getCustomerId())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
         // Проверка наличия товаров
         for (CartItemDTO item : request.getItems()) {
             Product product = productRepository.findBySku(item.getProductId())
@@ -63,6 +68,7 @@ public class OrderService {
         // Создание заказа
         Order order = new Order();
         order.setOrderNumber(generateOrderNumber());
+        order.setUser(user); // Устанавливаем связь с пользователем
         order.setCustomerId(request.getCustomerId());
         order.setCustomerName(request.getCustomerName());
         order.setCustomerEmail(request.getCustomerEmail());
@@ -248,6 +254,17 @@ public class OrderService {
     public OrderResponse getOrder(String orderNumber) {
         Order order = orderRepository.findByOrderNumber(orderNumber)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+        return mapToResponse(order);
+    }
+
+    public OrderResponse getOrderForUser(String orderNumber, Long userId) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+        
+        if (order.getUser() != null && !order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Access denied: This order belongs to another user");
+        }
+        
         return mapToResponse(order);
     }
 

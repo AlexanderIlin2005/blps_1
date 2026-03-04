@@ -32,10 +32,9 @@ public class ProductController {
     }
 
     @GetMapping("/search/{name}")
-    public ResponseEntity<Product> searchProduct(@PathVariable String name) {
+    public ResponseEntity<List<Product>> searchProduct(@PathVariable String name) {
         log.info("REST request to search product: {}", name);
-        return productRepository.findByNameContainingIgnoreCase(name)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        List<Product> products = productRepository.findByNameContainingIgnoreCase(name);
+        return ResponseEntity.ok(products);
     }
 }
