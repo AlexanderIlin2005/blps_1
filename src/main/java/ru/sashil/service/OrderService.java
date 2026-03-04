@@ -84,12 +84,15 @@ public class OrderService {
         double subtotal = 0;
 
         for (CartItemDTO item : request.getItems()) {
+            Product product = productRepository.findBySku(item.getProductId())
+                .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(item.getProductId());
-            orderItem.setProductName(item.getProductName());
+            orderItem.setProductName(product.getName()); // Берем название из базы
             orderItem.setQuantity(item.getQuantity());
-            orderItem.setPrice(item.getPrice());
-            orderItem.setTotal(item.getPrice() * item.getQuantity());
+            orderItem.setPrice(product.getPrice()); // КРИТИЧЕСКИ ВАЖНО: Берем цену из базы!
+            orderItem.setTotal(product.getPrice() * item.getQuantity());
             orderItem.setOrder(order);
 
             orderItems.add(orderItem);

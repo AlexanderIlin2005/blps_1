@@ -115,8 +115,9 @@ function updateCartItemQuantity(sku, newQuantity) {
         } else {
             // Добавляем новый
             const productCard = document.querySelector(`[data-sku="${sku}"]`);
-            const name = productCard?.querySelector('h3')?.textContent || '';
-            const price = parseFloat(productCard?.querySelector('.product-price')?.textContent?.replace(/[^\d,]/g, '').replace(',', '.') || 0);
+            const addBtn = productCard?.querySelector('.add-to-cart-btn');
+            const name = addBtn?.dataset.name || '';
+            const price = parseFloat(addBtn?.dataset.price || 0);
 
             cart.push({
                 sku,
