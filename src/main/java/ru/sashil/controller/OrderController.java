@@ -119,7 +119,7 @@ public class OrderController {
                 OrderResponse paidOrder = orderService.processPayment(
                     response.getOrderNumber(),
                     paymentMethod,
-                    "" // paymentDetails is now empty as it's handled on YooKassa side
+                    "" 
                 );
 
                 log.info("Payment processed, status: {}", paidOrder.getPaymentStatus());

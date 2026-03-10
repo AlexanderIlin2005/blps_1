@@ -138,7 +138,7 @@ public class PaymentWorker {
                     String paymentId = (String) responseBody.get("id");
                     String status = (String) responseBody.get("status");
                     
-                    // Извлекаем URL для редиректа из JSON, который ты прислал
+                    
                     Map<String, Object> confirmationResponse = (Map<String, Object>) responseBody.get("confirmation");
                     String confirmationUrl = null;
                     if (confirmationResponse != null && "redirect".equals(confirmationResponse.get("type"))) {

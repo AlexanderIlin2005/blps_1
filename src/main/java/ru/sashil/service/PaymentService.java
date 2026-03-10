@@ -55,11 +55,11 @@ public class PaymentService {
         );
 
         PaymentResponse response = new PaymentResponse();
-        // Temporary ID for tracking the task
+        
         response.setPaymentId("task-" + UUID.randomUUID().toString().substring(0, 8));
         
         try {
-            // Push task to Redis list
+            
             redisTemplate.opsForList().rightPush(PAYMENT_QUEUE, task);
             
             response.setStatus("PENDING");
@@ -77,7 +77,7 @@ public class PaymentService {
     public PaymentResponse checkPaymentStatus(String paymentId) {
         PaymentResponse response = new PaymentResponse();
         response.setPaymentId(paymentId);
-        // This would normally check Redis or DB for the current status
+        
         response.setStatus("COMPLETED");
         return response;
     }

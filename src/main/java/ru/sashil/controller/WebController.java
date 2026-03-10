@@ -52,7 +52,7 @@ public class WebController {
         
         if (orderNumber != null) {
             try {
-                // Пытаемся найти заказ, чтобы проверить наличие ссылки на оплату
+                
                 ru.sashil.repository.OrderRepository orderRepository = ((ru.sashil.repository.OrderRepository) 
                     org.springframework.web.context.support.WebApplicationContextUtils
                     .getRequiredWebApplicationContext(
