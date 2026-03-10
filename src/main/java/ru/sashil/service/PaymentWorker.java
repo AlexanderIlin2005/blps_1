@@ -43,9 +43,8 @@ public class PaymentWorker {
 
     private static final String PAYMENT_QUEUE = "yoomoney_payment_queue";
 
-    @Scheduled(fixedDelay = 10000) // Проверяем статус каждые 10 секунд
+    @Scheduled(fixedDelay = 10000)
     public void checkPendingPayments() {
-        // Ищем заказы, которые "зависли" в процессе оплаты
         java.util.List<Order> pendingOrders = orderRepository.findAll().stream()
             .filter(o -> o.getStatus() == OrderStatus.PAYMENT_PROCESSING && o.getPaymentId() != null)
             .collect(java.util.stream.Collectors.toList());
@@ -98,7 +97,6 @@ public class PaymentWorker {
             Order order = orderRepository.findByOrderNumber(task.getOrderNumber())
                 .orElseThrow(() -> new RuntimeException("Order not found: " + task.getOrderNumber()));
 
-            // Prepare YooMoney API Request
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             String auth = shopId + ":" + secretKey;
@@ -114,13 +112,11 @@ public class PaymentWorker {
             body.put("amount", amount);
             body.put("capture", true);
             body.put("description", "Оплата заказа №" + task.getOrderNumber());
-            
-            // Явно указываем, что хотим оплату именно банковской картой
+
             Map<String, String> paymentMethodData = new HashMap<>();
             paymentMethodData.put("type", "bank_card");
             body.put("payment_method_data", paymentMethodData);
 
-            // Обязательный блок для генерации ссылки на оплату
             Map<String, Object> confirmation = new HashMap<>();
             confirmation.put("type", "redirect");
             confirmation.put("return_url", "https://gitea.timoapp.tech/payment-result?orderNumber=" + task.getOrderNumber());
@@ -150,8 +146,7 @@ public class PaymentWorker {
                     }
 
                     log.info("YooKassa Pending: Status={}, ID={}, ConfirmationUrl={}", status, paymentId, confirmationUrl);
-                    
-                    // Сохраняем ID платежа и ссылку на редирект
+
                     order.setPaymentId(paymentId);
                     order.setPaymentConfirmationUrl(confirmationUrl);
                     orderRepository.save(order);
@@ -164,7 +159,6 @@ public class PaymentWorker {
                 }
             } catch (Exception e) {
                 log.error("YooKassa API Call Failed: {}", e.getMessage());
-                // Note: This will likely fail with 401 if real keys are not provided
                 finalizePayment(order, null, false, "Connection/Auth error: " + e.getMessage());
             }
 

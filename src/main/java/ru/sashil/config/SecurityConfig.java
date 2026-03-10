@@ -21,7 +21,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // 1. Цепочка для API (Webhook ЮKassa и др.)
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -30,7 +29,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/products/**").permitAll()
-                .requestMatchers("/api/payments/webhook").permitAll() // Вебхуки ЮKassa без авторизации
+                .requestMatchers("/api/payments/webhook").permitAll()
                 .requestMatchers("/api/orders/**").authenticated() // Опрос статуса только для залогиненных
                 .anyRequest().authenticated()
             )
