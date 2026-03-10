@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'ru.sashil'
-version = '1.0-SNAPSHOT'
+version = 'app'
 
 java {
     sourceCompatibility = '17'
@@ -26,6 +26,9 @@ dependencies {
 
     // Database
     implementation 'org.postgresql:postgresql:42.7.2'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     // Utilities
     implementation 'org.projectlombok:lombok:1.18.30'

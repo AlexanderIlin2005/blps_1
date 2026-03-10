@@ -53,6 +53,10 @@ public class Order {
     private String pickupPointAddress;
 
     private String paymentId;
+
+    @Column(length = 1000)
+    private String paymentConfirmationUrl;
+
     private String paymentMethod;
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;

@@ -9,7 +9,7 @@ import ru.sashil.model.Order;
 public class NotificationService {
 
     public void sendOrderConfirmation(Order order) {
-        log.info("📧 Sending order confirmation to {} for order {}",
+        log.info("Sending order confirmation to {} for order {}",
             order.getCustomerEmail(), order.getOrderNumber());
 
         log.info("Email content: Your order {} has been confirmed. Total: {} ₽",
@@ -17,7 +17,7 @@ public class NotificationService {
     }
 
     public void sendTrackingInfo(Order order) {
-        log.info("📧 Sending tracking info to {} for order {}",
+        log.info("Sending tracking info to {} for order {}",
             order.getCustomerEmail(), order.getOrderNumber());
 
         log.info("Tracking number: {} for order {}",
@@ -25,14 +25,14 @@ public class NotificationService {
     }
 
     public void sendDeliveryNotification(Order order) {
-        log.info("📧 Sending delivery notification to {} for order {}",
+        log.info("Sending delivery notification to {} for order {}",
             order.getCustomerEmail(), order.getOrderNumber());
 
         log.info("Your order {} has been delivered successfully!", order.getOrderNumber());
     }
 
     public void sendOrderCancelledNotification(Order order) {
-        log.info("📧 Sending cancellation notification to {} for order {}",
+        log.info("Sending cancellation notification to {} for order {}",
             order.getCustomerEmail(), order.getOrderNumber());
 
         log.info("Order {} has been cancelled due to non-payment",
@@ -40,7 +40,7 @@ public class NotificationService {
     }
 
     public void sendOutOfStockNotification(Order order) {
-        log.info("📧 Sending out of stock notification to {} for order {}",
+        log.info("Sending out of stock notification to {} for order {}",
             order.getCustomerEmail(), order.getOrderNumber());
 
         log.info("Some items in order {} are out of stock. Refund initiated.",

@@ -154,11 +154,19 @@ public class OrderService {
             addStatusHistory(order, OrderStatus.PAID,
                 "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
 
-            
             notificationService.sendOrderConfirmation(order);
+            log.info("Order {} paid successfully", orderNumber);
 
-            log.info("Order {} paid successfully, fulfillment will start automatically", orderNumber);
-
+        } else if ("PENDING".equals(paymentResponse.getStatus())) {
+            // New case for Redis/YooMoney
+            order.setPaymentId(paymentResponse.getPaymentId());
+            // Stay in PROCESSING/PAYMENT_PROCESSING
+            orderRepository.save(order);
+            
+            addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,
+                "Запрос на оплату отправлен в очередь (ЮKassa). Ожидайте подтверждения.");
+            log.info("Order {} payment is pending in queue", orderNumber);
+            
         } else if ("FAILED".equals(paymentResponse.getStatus())) {
             order.setPaymentStatus(PaymentStatus.FAILED);
             order.setStatus(OrderStatus.CANCELLED);
@@ -299,6 +307,7 @@ public class OrderService {
         response.setPickupPointAddress(order.getPickupPointAddress());
         response.setPaymentMethod(order.getPaymentMethod());
         response.setPaymentStatus(order.getPaymentStatus());
+        response.setPaymentConfirmationUrl(order.getPaymentConfirmationUrl());
         response.setTrackingNumber(order.getTrackingNumber());
 
         List<CartItemDTO> items = order.getItems().stream()

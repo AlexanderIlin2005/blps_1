@@ -57,10 +57,6 @@ public class OrderController {
             @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
             @RequestParam(value = "pickupPointId", required = false) String pickupPointId,
             @RequestParam("paymentMethod") String paymentMethod,
-            @RequestParam(value = "cardNumber", required = false) String cardNumber,
-            @RequestParam(value = "cardExpiry", required = false) String cardExpiry,
-            @RequestParam(value = "cardCvv", required = false) String cardCvv,
-            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
             @RequestParam(value = "items[0].productId", required = false) List<String> productIds,
             @RequestParam(value = "items[0].productName", required = false) List<String> productNames,
             @RequestParam(value = "items[0].quantity", required = false) List<Integer> quantities,
@@ -115,30 +111,28 @@ public class OrderController {
             OrderResponse response = orderService.createOrder(request);
             log.info("Order created successfully: {}", response.getOrderNumber());
 
+            String status = "success";
             
             if (paymentMethod != null && !paymentMethod.isEmpty()) {
                 log.info("Processing payment for order {} with method {}", response.getOrderNumber(), paymentMethod);
 
-                String paymentDetails = "";
-                if ("card".equals(paymentMethod)) {
-                    paymentDetails = cardNumber + "|" + cardExpiry + "|" + cardCvv;
-                } else if ("sbp".equals(paymentMethod)) {
-                    paymentDetails = phoneNumber;
-                }
-
                 OrderResponse paidOrder = orderService.processPayment(
                     response.getOrderNumber(),
                     paymentMethod,
-                    paymentDetails
+                    "" // paymentDetails is now empty as it's handled on YooKassa side
                 );
 
                 log.info("Payment processed, status: {}", paidOrder.getPaymentStatus());
+                
+                if (paidOrder.getPaymentStatus() == ru.sashil.model.PaymentStatus.FAILED) {
+                    status = "fail";
+                }
             }
 
 
             model.addAttribute("clearCart", true);
 
-            return "redirect:/orders/" + response.getOrderNumber() + "?success=true";
+            return "redirect:/payment-result?orderNumber=" + response.getOrderNumber() + "&flow=creation";
 
         } catch (Exception e) {
             log.error("Error creating order: {}", e.getMessage(), e);

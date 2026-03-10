@@ -25,6 +25,7 @@ public class OrderResponse {
     private String pickupPointAddress;
     private String paymentMethod;
     private PaymentStatus paymentStatus;
+    private String paymentConfirmationUrl;
     private String trackingNumber;
 
     

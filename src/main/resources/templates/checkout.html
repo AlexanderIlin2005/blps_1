@@ -33,9 +33,6 @@
 
         <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post">
 
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-
-
             <div id="cart-items-container"></div>
 
             <div class="form-section">
@@ -102,51 +99,19 @@
                 </div>
             </div>
 
-            <div class="form-section">
+            <div class="form-section payment-section">
                 <h3>Способ оплаты</h3>
+                
+                <input type="hidden" name="paymentMethod" value="card">
 
-                <div class="form-group">
-                    <label>
-                        <input type="radio" name="paymentMethod" value="card" checked>
-                        Банковской картой
-                    </label>
-                    <label>
-                        <input type="radio" name="paymentMethod" value="sbp">
-                        СБП
-                    </label>
-                    <label>
-                        <input type="radio" name="paymentMethod" value="installments">
-                        Рассрочка
-                    </label>
-                </div>
-
-                <div id="card-details" class="payment-details">
-                    <div class="form-group">
-                        <label for="cardNumber">Номер карты</label>
-                        <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="cardExpiry">Срок действия</label>
-                            <input type="text" id="cardExpiry" name="cardExpiry" placeholder="MM/YY">
-                        </div>
-                        <div class="form-group">
-                            <label for="cardCvv">CVV</label>
-                            <input type="text" id="cardCvv" name="cardCvv" placeholder="123">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="sbp-details" class="payment-details" style="display: none;">
-                    <div class="form-group">
-                        <label for="phoneNumber">Номер телефона</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="+7 (999) 123-45-67">
-                    </div>
+                <div class="payment-info">
+                    <p>Оплата производится банковской картой через защищенный платежный шлюз ЮKassa.</p>
+                    <p>После нажатия на кнопку вы будете перенаправлены на страницу оплаты.</p>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Оформить заказ</button>
+                <button type="submit" class="btn btn-primary btn-large">Перейти к оплате</button>
             </div>
         </form>
 

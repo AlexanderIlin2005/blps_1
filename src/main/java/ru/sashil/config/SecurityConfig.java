@@ -21,7 +21,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-
+    // 1. Цепочка для API (Webhook ЮKassa и др.)
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -30,6 +30,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/products/**").permitAll()
+                .requestMatchers("/api/payments/webhook").permitAll() // Вебхуки ЮKassa без авторизации
+                .requestMatchers("/api/orders/**").authenticated() // Опрос статуса только для залогиненных
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults());
@@ -37,14 +39,14 @@ public class SecurityConfig {
         return http.build();
     }
 
-
+    // 2. Цепочка для основного сайта
     @Bean
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .csrf(AbstractHttpConfigurer::disable) // Временно отключаем для простоты, если не используем hidden-поля csrf
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/catalog", "/register", "/login", "/error").permitAll()
+                .requestMatchers("/", "/catalog", "/register", "/login", "/error", "/payment-result").permitAll()
                 .requestMatchers("/css/**", "/js/**").permitAll()
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/checkout", "/orders/**", "/profile").authenticated()
                 .anyRequest().authenticated()
             )
