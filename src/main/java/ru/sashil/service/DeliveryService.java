@@ -62,7 +62,7 @@ public class DeliveryService {
                 orderService.completeDelivery(order.getOrderNumber());
                 notificationService.sendDeliveryNotification(order);
 
-                log.info("✅ Order {} delivery completed", order.getOrderNumber());
+                log.info("Order {} delivery completed", order.getOrderNumber());
 
             } catch (Exception e) {
                 log.error("Error in delivery for order: {}", order.getOrderNumber(), e);

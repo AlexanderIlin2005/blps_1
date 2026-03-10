@@ -67,9 +67,9 @@ public class InventoryService {
                     log.info("Handing over to delivery service: {}", order.getOrderNumber());
                     deliveryService.handoverToDelivery(order);
 
-                    log.info("✅ Fulfillment completed for order: {}", order.getOrderNumber());
+                    log.info("Fulfillment completed for order: {}", order.getOrderNumber());
                 } else {
-                    log.warn("❌ Some items out of stock for order: {}", order.getOrderNumber());
+                    log.warn("Some items out of stock for order: {}", order.getOrderNumber());
 
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
                         "Товара нет в наличии, заказ отменен");

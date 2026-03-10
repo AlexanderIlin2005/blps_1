@@ -329,7 +329,6 @@
                 if (trackingNumberElem) {
                     trackingNumberElem.textContent = order.trackingNumber;
                 } else if (!trackingContainer) {
-                    // Добавляем трек-номер если его не было
                     const orderInfo = document.getElementById('order-info');
                     const newTrackingP = document.createElement('p');
                     newTrackingP.id = 'tracking-container';
