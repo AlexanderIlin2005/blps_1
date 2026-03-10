@@ -30,7 +30,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/products/**").permitAll()
                 .requestMatchers("/api/payments/webhook").permitAll()
-                .requestMatchers("/api/orders/**").authenticated() // Опрос статуса только для залогиненных
+                .requestMatchers("/api/orders/**").authenticated()
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults());
@@ -38,11 +38,10 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 2. Цепочка для основного сайта
     @Bean
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable) // Временно отключаем для простоты, если не используем hidden-поля csrf
+            .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/catalog", "/register", "/login", "/error", "/payment-result").permitAll()
                 .requestMatchers("/css/**", "/js/**").permitAll()

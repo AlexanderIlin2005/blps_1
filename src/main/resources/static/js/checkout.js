@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     toggleDeliveryFields();
 
-    // Clear cart on successful order creation (handled by redirect with clearCart attribute)
     if (window.location.search.includes('clearCart=true')) {
         localStorage.removeItem('cart');
         localStorage.removeItem('cartTotal');

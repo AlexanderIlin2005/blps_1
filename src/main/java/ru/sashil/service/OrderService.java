@@ -158,9 +158,7 @@ public class OrderService {
             log.info("Order {} paid successfully", orderNumber);
 
         } else if ("PENDING".equals(paymentResponse.getStatus())) {
-            // New case for Redis/YooMoney
             order.setPaymentId(paymentResponse.getPaymentId());
-            // Stay in PROCESSING/PAYMENT_PROCESSING
             orderRepository.save(order);
             
             addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,

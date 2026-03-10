@@ -53,13 +53,11 @@ public class WebhookController {
             Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
-            // Если заказ уже оплачен - просто подтверждаем получение вебхука без действий
             if (order.getStatus() == OrderStatus.PAID) {
                 log.info("Order {} is already PAID, acknowledging webhook.", order.getOrderNumber());
                 return ResponseEntity.ok().build();
             }
 
-            // Проверяем как событие, так и статус объекта внутри
             if ("payment.succeeded".equals(event) || "succeeded".equals(status)) {
                 processSucceededPayment(order, paymentId);
             } else if ("payment.canceled".equals(event) || "canceled".equals(status)) {
@@ -70,7 +68,6 @@ public class WebhookController {
             log.error("Critical error in Webhook Controller: {}", e.getMessage(), e);
         }
 
-        // Возвращаем 200 OK в любом случае, чтобы ЮKassa не заваливала нас повторами при ошибках логики
         return ResponseEntity.ok().build();
     }
 
@@ -85,7 +82,6 @@ public class WebhookController {
         orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAID, "Оплата подтверждена через Webhook ЮKassa");
         notificationService.sendOrderConfirmation(order);
         
-        // Запускаем комплектацию
         inventoryService.processFulfillment(order);
     }
 

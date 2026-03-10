@@ -20,7 +20,7 @@ public class DeliveryService {
 
     @Async
     public CompletableFuture<Void> handoverToDelivery(Order order) {
-        log.info("📦 Handing over order to delivery: {}", order.getOrderNumber());
+        log.info("Handing over order to delivery: {}", order.getOrderNumber());
 
         return CompletableFuture.supplyAsync(() -> {
             try {
