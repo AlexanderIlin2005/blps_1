@@ -24,20 +24,17 @@
 
     <main class="container">
         <div class="result-container" id="main-content">
-            <!-- Начальное состояние -->
             <div id="status-loading">
                 <div class="loader"></div>
                 <h2 class="result-title">Загрузка данных...</h2>
             </div>
 
-            <!-- Шаблон: Ожидание формирования ссылки -->
             <div id="tpl-preparing" style="display: none;">
                 <div class="loader"></div>
                 <h2 class="result-title">Подготовка оплаты...</h2>
                 <p class="result-message">Мы связываемся с ЮKassa. Пожалуйста, не закрывайте страницу.</p>
             </div>
 
-            <!-- Шаблон: Ожидание оплаты (пользователь вернулся) -->
             <div id="tpl-waiting" style="display: none;">
                 <div class="icon-circle icon-pending">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -53,7 +50,6 @@
                 </div>
             </div>
 
-            <!-- Шаблон: Успех -->
             <div id="tpl-success" style="display: none;">
                 <div class="icon-circle icon-success">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -66,7 +62,6 @@
                 </div>
             </div>
 
-            <!-- Шаблон: Ошибка -->
             <div id="tpl-error" style="display: none;">
                 <div class="icon-circle icon-error">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -80,7 +75,7 @@
 
     <script th:inline="javascript">
         const orderNumber = [[${orderNumber}]];
-        const flow = [[${flow}]]; // creation или null
+        const flow = [[${flow}]];
         
         function showTemplate(id) {
             ['status-loading', 'tpl-preparing', 'tpl-waiting', 'tpl-success', 'tpl-error'].forEach(tid => {
@@ -95,31 +90,26 @@
             fetch('/api/orders/' + orderNumber)
                 .then(response => response.json())
                 .then(order => {
-                    // Список статусов, которые означают, что оплата уже прошла
                     const successStatuses = ['PAID', 'PROCESSING', 'PACKING', 'READY_FOR_SHIPPING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'];
                     
                     if (successStatuses.includes(order.status)) {
                         showTemplate('tpl-success');
-                        return; // Останавливаем опрос
+                        return;
                     }
 
                     if (order.status === 'CANCELLED') {
                         showTemplate('tpl-error');
-                        return; // Останавливаем опрос
+                        return;
                     }
 
                     if (!order.paymentConfirmationUrl) {
                         showTemplate('tpl-preparing');
                     } else {
-                        // Ссылка уже есть
                         if (flow === 'creation') {
-                            // Если мы только что создали заказ - редиректим в ЮKassa
-                            // Используем replace, чтобы кнопка "Назад" не вела в ловушку
                             window.location.replace(order.paymentConfirmationUrl);
                             return;
                         }
                         
-                        // Если мы вернулись с оплаты, но статус еще не PAID
                         showTemplate('tpl-waiting');
                         document.getElementById('res-order-num-waiting').textContent = orderNumber;
                         const retryBtn = document.getElementById('pay-link-retry');

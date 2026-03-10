@@ -39,7 +39,7 @@ public class InventoryService {
 
     @Async
     public CompletableFuture<Void> processFulfillment(Order order) {
-        log.info("🚀 Starting fulfillment for order: {}", order.getOrderNumber());
+        log.info("Starting fulfillment for order: {}", order.getOrderNumber());
 
         return CompletableFuture.supplyAsync(() -> {
             try {
