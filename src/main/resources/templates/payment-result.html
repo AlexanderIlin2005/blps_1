@@ -1,127 +1,175 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Статус заказа - Магазин</title>
+    <title>Статус платежа - ElectroGlass</title>
     <link rel="stylesheet" th:href="@{/css/styles.css}">
-    <style>
-        .result-container { max-width: 600px; margin: 4rem auto; text-align: center; background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        .icon-circle { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; }
-        .icon-success { background-color: #d4edda; color: #28a745; }
-        .icon-error { background-color: #f8d7da; color: #e30613; }
-        .icon-pending { background-color: #fff3cd; color: #856404; }
-        .result-title { font-size: 2rem; margin-bottom: 1rem; color: #333; }
-        .result-message { font-size: 1.1rem; color: #666; margin-bottom: 2rem; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #e30613; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn-group { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; }
-        .order-info-box { background-color: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border: 1px dashed #ddd; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header><div class="container"><h1>Магазин</h1></div></header>
+    <header>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
+            <nav>
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/catalog">Каталог</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
 
     <main class="container">
-        <div class="result-container" id="main-content">
-            <div id="status-loading">
-                <div class="loader"></div>
-                <h2 class="result-title">Загрузка данных...</h2>
-            </div>
+        <section class="animate" style="max-width: 600px; margin: 4rem auto; text-align: center;">
+            <div id="payment-status-card" class="card glass">
+                <div id="status-icon" style="font-size: 5rem; margin-bottom: 2rem;">⏳</div>
+                <h2 id="status-title" class="section-title" style="font-size: 2rem; margin-bottom: 1rem;">Обработка заказа</h2>
+                <p id="status-text" style="color: var(--text-dim); margin-bottom: 2.5rem;">
+                    Мы связываемся с платежной системой ЮKassa...
+                </p>
 
-            <div id="tpl-preparing" style="display: none;">
-                <div class="loader"></div>
-                <h2 class="result-title">Подготовка оплаты...</h2>
-                <p class="result-message">Мы связываемся с ЮKassa. Пожалуйста, не закрывайте страницу.</p>
-            </div>
+                <div class="info-backing" style="padding: 1.5rem; text-align: left; margin-bottom: 2.5rem;">
+                    <div class="info-row" style="padding: 0.75rem 0;">
+                        <span class="info-label">Заказ</span>
+                        <span class="info-value" th:text="${orderNumber}"></span>
+                    </div>
+                    <div class="info-row" style="padding: 0.75rem 0; border: none;">
+                        <span class="info-label">Сумма</span>
+                        <span class="info-value" th:text="${order != null ? #numbers.formatDecimal(order.total, 0, 0) + ' ₽' : '...' }"></span>
+                    </div>
+                </div>
 
-            <div id="tpl-waiting" style="display: none;">
-                <div class="icon-circle icon-pending">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <!-- Кнопка ручного перехода (скрыта по умолчанию) -->
+                <div id="manual-pay-container" style="display: none; margin-bottom: 2.5rem; padding: 1rem; border-radius: 16px; background: rgba(255,255,255,0.02); border: 1px dashed var(--glass-border);">
+                    <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Автоматический переход не сработал?</p>
+                    <a id="manual-pay-btn" href="#" class="btn btn-secondary" style="width: 100%; border-color: var(--text-dim); color: var(--text-dim);">Перейти к оплате вручную</a>
                 </div>
-                <h2 class="result-title">Ожидаем подтверждения</h2>
-                <p class="result-message">Если вы уже оплатили заказ, подождите немного — мы обновляем статус.</p>
-                <div class="order-info-box">
-                    <p>Заказ: <strong id="res-order-num-waiting"></strong></p>
-                </div>
-                <div class="btn-group">
-                    <button onclick="location.reload()" class="btn btn-secondary">Проверить статус вручную</button>
-                    <a href="#" id="pay-link-retry" class="btn btn-primary" style="display:none;">Перейти к оплате</a>
-                </div>
-            </div>
 
-            <div id="tpl-success" style="display: none;">
-                <div class="icon-circle icon-success">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <div id="status-loader" style="margin-bottom: 2rem;">
+                    <div style="width: 40px; height: 40px; border: 4px solid var(--glass-border); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
                 </div>
-                <h2 class="result-title">Заказ оплачен!</h2>
-                <p class="result-message">Всё отлично! Мы получили оплату и начали обработку заказа.</p>
-                <div class="btn-group">
-                    <a th:href="@{/orders}" class="btn btn-primary">Мои заказы</a>
-                    <a th:href="@{/}" class="btn btn-secondary">На главную</a>
+
+                <div id="action-buttons" style="display: none; gap: 1rem;">
+                    <a href="/orders" class="btn btn-primary" style="flex: 1;">К моим заказам</a>
+                    <a href="/catalog" class="btn btn-secondary" style="flex: 1;">В каталог</a>
                 </div>
             </div>
+        </section>
+    </main>
 
-            <div id="tpl-error" style="display: none;">
-                <div class="icon-circle icon-error">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </div>
-                <h2 class="result-title">Статус не определен</h2>
-                <p class="result-message">Не удалось получить данные о заказе.</p>
-                <a th:href="@{/}" class="btn btn-secondary">На главную</a>
+    <footer>
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены.</p>
             </div>
         </div>
-    </main>
+    </footer>
+
+    <style> @keyframes spin { to { transform: rotate(360deg); } } </style>
 
     <script th:inline="javascript">
         const orderNumber = [[${orderNumber}]];
-        const flow = [[${flow}]];
-        
-        function showTemplate(id) {
-            ['status-loading', 'tpl-preparing', 'tpl-waiting', 'tpl-success', 'tpl-error'].forEach(tid => {
-                const el = document.getElementById(tid);
-                if (el) el.style.display = (tid === id) ? 'block' : 'none';
-            });
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const flow = urlParams.get('flow');
+        let hasAutoRedirected = false;
+        let attempts = 0;
 
-        function pollStatus() {
-            if (!orderNumber) { showTemplate('tpl-error'); return; }
-
-            fetch('/api/orders/' + orderNumber)
-                .then(response => response.json())
+        function checkStatus() {
+            if (!orderNumber) return;
+            
+            fetch(`/api/orders/${orderNumber}`)
+                .then(res => res.json())
                 .then(order => {
-                    const successStatuses = ['PAID', 'PROCESSING', 'PACKING', 'READY_FOR_SHIPPING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'];
-                    
-                    if (successStatuses.includes(order.status)) {
-                        showTemplate('tpl-success');
-                        return;
-                    }
+                    const icon = document.getElementById('status-icon');
+                    const title = document.getElementById('status-title');
+                    const text = document.getElementById('status-text');
+                    const loader = document.getElementById('status-loader');
+                    const buttons = document.getElementById('action-buttons');
+                    const manualPay = document.getElementById('manual-pay-container');
+                    const manualBtn = document.getElementById('manual-pay-btn');
 
-                    if (order.status === 'CANCELLED') {
-                        showTemplate('tpl-error');
-                        return;
-                    }
-
-                    if (!order.paymentConfirmationUrl) {
-                        showTemplate('tpl-preparing');
-                    } else {
-                        if (flow === 'creation') {
-                            window.location.replace(order.paymentConfirmationUrl);
-                            return;
+                    // 1. Логика оплаты и редиректа
+                    if (order.status === 'PAYMENT_PROCESSING' || order.status === 'CHECKOUT') {
+                        if (order.paymentConfirmationUrl) {
+                            manualPay.style.display = 'block';
+                            manualBtn.href = order.paymentConfirmationUrl;
+                            text.textContent = 'Ожидаем оплату заказа. Если страница не открылась автоматически, нажмите на кнопку ниже.';
+                            
+                            // Авто-редирект только один раз при создании заказа
+                            if (flow === 'creation' && !hasAutoRedirected) {
+                                hasAutoRedirected = true;
+                                setTimeout(() => {
+                                    window.location.href = order.paymentConfirmationUrl;
+                                }, 1500);
+                            }
+                        } else {
+                            text.textContent = 'Генерируем ссылку на оплату в ЮKassa...';
                         }
-                        
-                        showTemplate('tpl-waiting');
-                        document.getElementById('res-order-num-waiting').textContent = orderNumber;
-                        const retryBtn = document.getElementById('pay-link-retry');
-                        retryBtn.href = order.paymentConfirmationUrl;
-                        retryBtn.style.display = 'inline-block';
                     }
-                    setTimeout(pollStatus, 3000);
+
+                    // 2. Логика успеха/провала
+                    if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED' || order.status === 'COMPLETED') {
+                        icon.textContent = '✅';
+                        title.textContent = 'Оплата принята!';
+                        text.textContent = 'Ваш заказ успешно оплачен и уже передается на сборку. Спасибо за покупку!';
+                        loader.style.display = 'none';
+                        manualPay.style.display = 'none';
+                        buttons.style.display = 'flex';
+                        
+                        if (urlParams.get('clearCart') === 'true') {
+                            localStorage.removeItem('cart');
+                            localStorage.removeItem('cartTotal');
+                        }
+                        return; // Останавливаем опрос
+                    } 
+                    
+                    if (order.status === 'CANCELLED') {
+                        icon.textContent = '❌';
+                        title.textContent = 'Заказ отменен';
+                        text.textContent = 'К сожалению, платеж не прошел или заказ был отменен.';
+                        loader.style.display = 'none';
+                        manualPay.style.display = 'none';
+                        buttons.style.display = 'flex';
+                        return;
+                    }
+
+                    // Продолжаем опрос, если статус еще не финальный
+                    attempts++;
+                    if (attempts < 100) {
+                        setTimeout(checkStatus, 3000);
+                    } else {
+                        loader.style.display = 'none';
+                        text.textContent = 'Проверка статуса занимает слишком много времени. Вы можете закрыть страницу и проверить статус в личном кабинете позже.';
+                        buttons.style.display = 'flex';
+                    }
                 })
-                .catch(err => setTimeout(pollStatus, 5000));
+                .catch(err => {
+                    console.error('Status check failed', err);
+                    setTimeout(checkStatus, 5000);
+                });
         }
 
-        pollStatus();
+        checkStatus();
+
+        function updateNavCart(){
+            const c=JSON.parse(localStorage.getItem("cart"))||[];
+            const b=document.getElementById("cart-count-nav");
+            if(b){
+                const count=c.reduce((s,i)=>s+i.quantity,0);
+                if(count>0){b.style.display="inline-block";b.textContent=count;}
+                else{b.style.display="none";}
+            }
+        }
+        document.addEventListener("DOMContentLoaded",updateNavCart);
     </script>
 </body>
 </html>

@@ -3,54 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог товаров</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Каталог - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Каталог товаров</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
-                    <li sec:authorize="!isAuthenticated()"><a href="/register">Регистрация</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
                     <li sec:authorize="isAuthenticated()">
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="cart-container">
-            <h2>Корзина</h2>
-            <div id="cart-items" class="cart-items">
-                <p>Корзина пуста</p>
+        <section class="hero animate">
+            <div class="hero-glow"></div>
+            <h2>Премиальная электроника</h2>
+            <p style="color: var(--text-dim);">Эстетика технологий и мощь распределенных транзакций</p>
+        </section>
+
+        <section class="animate" style="animation-delay: 0.1s;">
+            <div class="card glass controls-bar" style="background: var(--bg-surface); padding: 1.5rem; display: flex; gap: 1rem; align-items: center; border-radius: 20px; margin-bottom: 3rem;">
+                <div style="flex: 1;">
+                    <input type="text" id="productSearch" placeholder="Поиск по названию..." onkeyup="filterProducts()" style="margin-bottom: 0;">
+                </div>
+                <div style="width: 250px;">
+                    <select id="categoryFilter" onchange="filterProducts()" style="margin-bottom: 0;">
+                        <option value="all">Все категории</option>
+                        <option value="Смартфоны">Смартфоны</option>
+                        <option value="Ноутбуки">Ноутбуки</option>
+                        <option value="Периферия">Периферия</option>
+                        <option value="Аудио">Аудио</option>
+                        <option value="Комплектующие">Железо</option>
+                        <option value="Часы">Часы</option>
+                    </select>
+                </div>
             </div>
-            <div id="cart-total" class="cart-total"></div>
-            <a href="/checkout" class="btn btn-primary" id="checkout-btn" style="display: none;" sec:authorize="isAuthenticated()">Оформить заказ</a>
-            <a href="/login" class="btn btn-primary" id="login-to-checkout" style="display: none;" sec:authorize="!isAuthenticated()">Войти для оформления</a>
-        </div>
 
-        <h2>Товары</h2>
-        <div id="products" class="products-grid products-grid-3col">
-
-        </div>
+            <div id="products-grid" class="products-grid">
+                <div class="card" style="grid-column: 1/-1; text-align: center;">Загрузка инноваций...</div>
+            </div>
+        </section>
     </main>
+
+    <div id="cart-notification" class="glass" style="display: none; position: fixed; bottom: 30px; right: 30px; padding: 1rem 2rem; border-radius: 100px; background: var(--primary-color); color: white; box-shadow: 0 10px 30px var(--primary-glow); z-index: 2000; font-weight: 600;">
+        Товар добавлен в корзину
+    </div>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Интернет-магазин</p>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Modern JTA Architecture.</p>
+            </div>
         </div>
     </footer>
 
-    <script src="/js/catalog.js"></script>
+    <script>
+        let allProducts = [];
+
+        function loadProducts() {
+            fetch('/api/products')
+                .then(res => res.json())
+                .then(data => {
+                    allProducts = data;
+                    renderProducts(data);
+                });
+        }
+
+        function renderProducts(products) {
+            const grid = document.getElementById('products-grid');
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; text-align: center; color: var(--text-dim);">Товары не найдены</div>';
+                return;
+            }
+            grid.innerHTML = products.map(p => {
+                // Support multi-byte emojis and complex names
+                const chars = Array.from(p.name);
+                const emoji = chars[0];
+                const rest = chars.slice(1).join('').trim();
+                
+                // If the first char is not actually an emoji (e.g. legacy name), fallback
+                const hasEmoji = /\p{Emoji}/u.test(emoji);
+                const finalEmoji = hasEmoji ? emoji : '📦';
+                const finalName = hasEmoji ? rest : p.name;
+
+                return `
+                    <div class="card product-card">
+                        <a href="/product/${p.sku}" style="text-decoration: none; color: inherit;">
+                            <div class="product-image" style="background: rgba(255,255,255,0.02); border-radius: 16px;">
+                                ${finalEmoji}
+                            </div>
+                            <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem;">${finalName}</h3>
+                        </a>
+                        <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem; height: 3rem; overflow: hidden;">${p.description}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                            <div class="product-price" style="margin: 0;">${p.price.toLocaleString()} ₽</div>
+                            <button class="btn btn-primary" onclick="addToCart('${p.sku}', '${p.name}', ${p.price})" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">
+                                В корзину
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterProducts() {
+            const search = document.getElementById('productSearch').value.toLowerCase();
+            const cat = document.getElementById('categoryFilter').value;
+            
+            const filtered = allProducts.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(search);
+                const matchesCat = cat === 'all' || p.category === cat;
+                return matchesSearch && matchesCat;
+            });
+            renderProducts(filtered);
+        }
+
+        function addToCart(sku, name, price) {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const existing = cart.find(item => item.sku === sku);
+            if (existing) existing.quantity++;
+            else cart.push({ sku, name, price, quantity: 1 });
+            
+            localStorage.setItem('cart', JSON.stringify(cart));
+            localStorage.setItem('cartTotal', cart.reduce((sum, item) => sum + item.price * item.quantity, 0));
+            
+            const note = document.getElementById('cart-notification');
+            note.style.display = 'block';
+            setTimeout(() => note.style.display = 'none', 2000);
+        }
+
+        loadProducts();
+    </script>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

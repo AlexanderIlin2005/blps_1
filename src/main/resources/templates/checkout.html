@@ -3,132 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оформление заказа</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Оформление заказа - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Оформление заказа</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
                     <li sec:authorize="isAuthenticated()">
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div sec:authorize="!isAuthenticated()" class="warning-message">
-            <p>Для оформления заказа необходимо <a href="/login">войти</a> или <a href="/register">зарегистрироваться</a></p>
-        </div>
+        <section class="animate">
+            <h2 class="section-title">Оформление заказа</h2>
 
-        <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post">
+            <div th:if="${error}" id="error-splash" class="error-message glass" th:text="${error}"></div>
 
-            <div id="cart-items-container"></div>
-
-            <div class="form-section">
-                <h3>Контактная информация</h3>
-
-                <div class="form-group">
-                    <label for="customerName">ФИО *</label>
-                    <input type="text" id="customerName" name="customerName" required
-                           th:value="${user?.fullName}">
-                </div>
-
-                <div class="form-group">
-                    <label for="customerEmail">Email *</label>
-                    <input type="email" id="customerEmail" name="customerEmail" required
-                           th:value="${user?.email}">
-                </div>
-
-                <div class="form-group">
-                    <label for="customerPhone">Телефон *</label>
-                    <input type="tel" id="customerPhone" name="customerPhone" required
-                           th:value="${user?.phone}">
-                </div>
+            <div sec:authorize="!isAuthenticated()" class="card glass" style="text-align: center; padding: 3rem;">
+                <p>Для оформления заказа необходимо <a href="/login" style="color: var(--primary-color);">войти</a></p>
             </div>
 
-            <div class="form-section">
-                <h3>Способ получения</h3>
-
-                <div class="form-group">
-                    <label>
-                        <input type="radio" name="deliveryType" value="COURIER" checked>
-                        Курьером
-                    </label>
-                    <label>
-                        <input type="radio" name="deliveryType" value="PICKUP">
-                        Самовывоз (ПВЗ)
-                    </label>
-                </div>
-
-                <div id="courier-fields" class="delivery-fields">
+            <form id="checkout-form" sec:authorize="isAuthenticated()" action="/orders/create" method="post" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div class="info-backing">
+                    <h3 style="margin-bottom: 2rem;">Данные получателя</h3>
                     <div class="form-group">
-                        <label for="deliveryAddress">Адрес доставки</label>
-                        <input type="text" id="deliveryAddress" name="deliveryAddress" placeholder="Введите адрес доставки">
+                        <label>Ваше имя</label>
+                        <input type="text" name="customerName" th:value="${user != null ? user.fullName : ''}" required>
                     </div>
-                </div>
-
-                <div id="pickup-fields" class="delivery-fields" style="display: none;">
                     <div class="form-group">
-                        <label for="pickupPointId">Пункт самовывоза</label>
-                        <select id="pickupPointId" name="pickupPointId">
-                            <option value="">Выберите пункт выдачи</option>
+                        <label>Email</label>
+                        <input type="email" name="customerEmail" th:value="${user != null ? user.email : ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Телефон</label>
+                        <input type="text" name="customerPhone" th:value="${user != null ? user.phone : ''}" required>
+                    </div>
+
+                    <h3 style="margin: 2rem 0 1.5rem;">Способ получения</h3>
+                    <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="deliveryType" value="COURIER" checked onchange="toggleDelivery()"> 
+                            <span>Курьером</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="deliveryType" value="PICKUP" onchange="toggleDelivery()"> 
+                            <span>Самовывоз (ПВЗ)</span>
+                        </label>
+                    </div>
+
+                    <div id="address-section" class="form-group">
+                        <label>Адрес доставки</label>
+                        <textarea name="deliveryAddress" rows="3" placeholder="Город, улица, дом, квартира"></textarea>
+                    </div>
+
+                    <div id="pickup-section" class="form-group" style="display: none;">
+                        <label>Выберите пункт выдачи</label>
+                        <select name="pickupPointId">
                             <option value="p1">ул. Тверская, 7</option>
                             <option value="p2">пр. Мира, 26</option>
                             <option value="p3">Ленинский пр., 68</option>
                         </select>
                     </div>
                 </div>
-            </div>
 
-            <div class="form-section">
-                <h3>Ваш заказ</h3>
-                <div id="order-items" class="order-items"></div>
-                <div class="order-total">
-                    <strong>Итого: <span id="order-total">0</span> ₽</strong>
+                <div style="display: flex; flex-direction: column; gap: 2rem;">
+                    <div class="info-backing" style="margin-bottom: 0;">
+                        <h3 style="margin-bottom: 1.5rem;">Ваш заказ</h3>
+                        <div id="checkout-items-list">
+                            <!-- Items from JS -->
+                        </div>
+                        <div style="border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600;">Итого к оплате</span>
+                            <span id="checkout-total" style="font-size: 1.8rem; font-weight: 800; color: var(--primary-color);">0 ₽</span>
+                        </div>
+                    </div>
+
+                    <div class="info-backing">
+                        <h3 style="margin-bottom: 1rem;">Способ оплаты</h3>
+                        <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                            Оплата производится через защищенный шлюз ЮKassa. Мы принимаем карты всех банков и СБП.
+                        </p>
+                        <input type="hidden" name="paymentMethod" value="card">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1.2rem;">Перейти к оплате</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-section payment-section">
-                <h3>Способ оплаты</h3>
-                
-                <input type="hidden" name="paymentMethod" value="card">
-
-                <div class="payment-info">
-                    <p>Оплата производится банковской картой через защищенный платежный шлюз ЮKassa.</p>
-                    <p>После нажатия на кнопку вы будете перенаправлены на страницу оплаты.</p>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary btn-large">Перейти к оплате</button>
-            </div>
-        </form>
-
-        <div id="order-result" style="display: none;" class="order-result">
-            <h3>Заказ оформлен!</h3>
-            <p>Номер заказа: <span id="result-order-number"></span></p>
-            <p>Статус: <span id="result-status"></span></p>
-            <p>Следить за заказом можно по <a href="#" id="result-link">ссылке</a></p>
-        </div>
+                <div id="cart-data-container"></div>
+            </form>
+        </section>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Интернет-магазин</p>
+            <a href="/" class="footer-logo"><span>Electro</span>Glass</a>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены.</p>
+            </div>
         </div>
     </footer>
 
-    <script src="/js/checkout.js"></script>
+    <script th:src="@{/js/checkout.js}"></script>
+    <script>
+        function toggleDelivery() {
+            const isCourier = document.querySelector('input[name="deliveryType"]:checked').value === 'COURIER';
+            document.getElementById('address-section').style.display = isCourier ? 'block' : 'none';
+            document.getElementById('pickup-section').style.display = isCourier ? 'none' : 'block';
+        }
+        
+        function updateNavCart(){
+            const c=JSON.parse(localStorage.getItem("cart"))||[];
+            const b=document.getElementById("cart-count-nav");
+            if(b){
+                const count=c.reduce((s,i)=>s+i.quantity,0);
+                if(count>0){b.style.display="inline-block";b.textContent=count;}
+                else{b.style.display="none";}
+            }
+        }
+        document.addEventListener("DOMContentLoaded",updateNavCart);
+    </script>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

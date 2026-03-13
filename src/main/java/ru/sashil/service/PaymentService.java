@@ -2,16 +2,16 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import ru.sashil.dto.PaymentResponse;
-import ru.sashil.dto.PaymentTask;
-import ru.sashil.repository.OrderRepository;
 
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -19,10 +19,9 @@ import java.util.UUID;
 @Slf4j
 public class PaymentService {
 
-    private final OrderRepository orderRepository;
-    private final NotificationService notificationService;
-    private final RestTemplate restTemplate;
+    private final RestTemplate restTemplate = new RestTemplate();
     private final RedisTemplate<String, Object> redisTemplate;
+    private static final String PAYMENT_QUEUE = "yoomoney_payment_queue";
 
     @Value("${yoomoney.api.url}")
     private String yooMoneyUrl;
@@ -33,63 +32,91 @@ public class PaymentService {
     @Value("${yoomoney.secret.key}")
     private String secretKey;
 
-    private static final String PAYMENT_QUEUE = "yoomoney_payment_queue";
-
-    private InventoryService inventoryService;
-
-    @Autowired
-    public void setInventoryService(@Lazy InventoryService inventoryService) {
-        this.inventoryService = inventoryService;
-    }
-
     public PaymentResponse processPayment(String orderNumber, String paymentMethod, Double amount, String details) {
-        log.info("Queueing payment via Redis for YooMoney - Order: {}, Method: {}, Amount: {}", 
-            orderNumber, paymentMethod, amount);
+        log.info("Queuing YooKassa payment for order: {}", orderNumber);
 
-        PaymentTask task = new PaymentTask(
-            orderNumber,
-            amount,
-            paymentMethod,
-            details,
-            System.currentTimeMillis()
+        ru.sashil.dto.PaymentTask task = new ru.sashil.dto.PaymentTask(
+            orderNumber, amount, paymentMethod, details, System.currentTimeMillis()
         );
 
         PaymentResponse response = new PaymentResponse();
-        
-        response.setPaymentId("task-" + UUID.randomUUID().toString().substring(0, 8));
-        
         try {
-            
             redisTemplate.opsForList().rightPush(PAYMENT_QUEUE, task);
-            
             response.setStatus("PENDING");
-            response.setMessage("Payment task queued for processing via YooMoney");
-            log.info("Payment task queued successfully for order: {}", orderNumber);
+            response.setMessage("Payment queued");
         } catch (Exception e) {
-            log.error("Failed to queue payment task in Redis: {}", e.getMessage());
+            log.error("Failed to queue payment: {}", e.getMessage());
             response.setStatus("FAILED");
-            response.setMessage("Internal queuing error: " + e.getMessage());
         }
-
         return response;
     }
 
     public PaymentResponse checkPaymentStatus(String paymentId) {
-        PaymentResponse response = new PaymentResponse();
-        response.setPaymentId(paymentId);
-        
-        response.setStatus("COMPLETED");
-        return response;
+        log.info("Checking YooKassa status for payment: {}", paymentId);
+        try {
+            HttpHeaders headers = createAuthHeaders();
+            ResponseEntity<Map> responseEntity = restTemplate.exchange(
+                yooMoneyUrl + "/" + paymentId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class
+            );
+
+            PaymentResponse response = new PaymentResponse();
+            response.setPaymentId(paymentId);
+            if (responseEntity.getStatusCode().is2xxSuccessful()) {
+                response.setStatus((String) responseEntity.getBody().get("status"));
+            } else {
+                response.setStatus("UNKNOWN");
+            }
+            return response;
+        } catch (Exception e) {
+            log.error("Failed to check payment status: {}", e.getMessage());
+            throw new RuntimeException("Status check failed", e);
+        }
     }
 
-    public PaymentResponse refundPayment(String paymentId, Double amount) {
-        log.info("Refunding payment: {} amount: {}", paymentId, amount);
+    public PaymentResponse refundPayment(String paymentId, Double amountValue) {
+        log.info("Requesting YooKassa refund for payment: {} amount: {}", paymentId, amountValue);
+        try {
+            HttpHeaders headers = createAuthHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Idempotence-Key", UUID.randomUUID().toString());
 
-        PaymentResponse response = new PaymentResponse();
-        response.setPaymentId(paymentId);
-        response.setStatus("REFUNDED");
-        response.setMessage("Refund processed successfully via YooMoney API");
+            Map<String, Object> amount = new HashMap<>();
+            amount.put("value", String.format("%.2f", amountValue).replace(",", "."));
+            amount.put("currency", "RUB");
 
-        return response;
+            Map<String, Object> body = new HashMap<>();
+            body.put("amount", amount);
+            body.put("payment_id", paymentId);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> responseEntity = restTemplate.postForEntity(
+                yooMoneyUrl.replace("/payments", "/refunds"), 
+                entity, Map.class
+            );
+
+            PaymentResponse response = new PaymentResponse();
+            response.setPaymentId(paymentId);
+            if (responseEntity.getStatusCode().is2xxSuccessful()) {
+                response.setStatus("REFUNDED");
+                response.setMessage("Refund successful");
+            } else {
+                response.setStatus("FAILED");
+            }
+            return response;
+        } catch (Exception e) {
+            log.error("Refund failed: {}", e.getMessage());
+            throw new RuntimeException("Refund failed", e);
+        }
+    }
+
+    private HttpHeaders createAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String auth = shopId + ":" + secretKey;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
+        headers.set("Authorization", "Basic " + encodedAuth);
+        return headers;
     }
 }

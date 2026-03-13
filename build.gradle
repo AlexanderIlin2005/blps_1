@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'war'
     id 'org.springframework.boot' version '3.2.3'
     id 'io.spring.dependency-management' version '1.1.4'
 }
@@ -7,16 +8,13 @@ plugins {
 group = 'ru.sashil'
 version = 'app'
 
-java {
-    sourceCompatibility = '17'
-}
-
 repositories {
     mavenCentral()
 }
 
 dependencies {
     // Spring Boot starters
+    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -30,6 +28,9 @@ dependencies {
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // JTA
+    implementation 'jakarta.transaction:jakarta.transaction-api:2.0.1'
+    
     // Utilities
     implementation 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
@@ -41,6 +42,9 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'com.google.truth:truth:1.4.2'
+    testImplementation 'org.seleniumhq.selenium:selenium-java:4.18.1'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 test {

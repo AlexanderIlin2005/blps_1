@@ -1,69 +1,80 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Регистрация</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Регистрация - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Регистрация</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li><a href="/login">Вход</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="auth-form">
-            <h2>Создание аккаунта</h2>
-
+        <div class="card glass animate" style="max-width: 600px; margin: 2rem auto;">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Создание аккаунта</h2>
+            
             <div th:if="${error}" class="error-message" th:text="${error}"></div>
 
-            <form action="#" th:action="@{/register}" th:object="${user}" method="post">
+            <form th:action="@{/register}" th:object="${user}" method="post">
                 <div class="form-group">
-                    <label for="username">Имя пользователя *</label>
-                    <input type="text" id="username" th:field="*{username}" required>
+                    <label>Имя пользователя</label>
+                    <input type="text" th:field="*{username}" required placeholder="Придумайте логин">
                 </div>
-
                 <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" th:field="*{email}" required>
+                    <label>Email</label>
+                    <input type="email" th:field="*{email}" required placeholder="your@email.com">
                 </div>
-
                 <div class="form-group">
-                    <label for="fullName">Полное имя</label>
-                    <input type="text" id="fullName" th:field="*{fullName}">
+                    <label>Полное имя</label>
+                    <input type="text" th:field="*{fullName}" placeholder="Иванов Иван">
                 </div>
-
-                <div class="form-group">
-                    <label for="phone">Телефон</label>
-                    <input type="tel" id="phone" th:field="*{phone}">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>Пароль</label>
+                        <input type="password" th:field="*{password}" required placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Подтверждение</label>
+                        <input type="password" th:field="*{confirmPassword}" required placeholder="••••••••">
+                    </div>
                 </div>
-
-                <div class="form-group">
-                    <label for="password">Пароль *</label>
-                    <input type="password" id="password" th:field="*{password}" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="confirmPassword">Подтверждение пароля *</label>
-                    <input type="password" id="confirmPassword" th:field="*{confirmPassword}" required>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
-                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Зарегистрироваться</button>
             </form>
 
-            <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+            <div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                <p style="color: var(--text-dim); margin-bottom: 1rem;">Уже есть аккаунт?</p>
+                <a href="/login" class="btn btn-secondary" style="width: 100%;">Войти в систему</a>
+            </div>
         </div>
     </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

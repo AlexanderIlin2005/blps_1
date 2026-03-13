@@ -1,58 +1,139 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои заказы</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Мои заказы - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Мои заказы</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li><a href="/profile">Профиль</a></li>
-                    <li>
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <h2>История заказов</h2>
-
-        <div th:if="${#lists.isEmpty(orders)}" class="empty-state">
-            <p>У вас пока нет заказов</p>
-            <a href="/catalog" class="btn btn-primary">Перейти в каталог</a>
-        </div>
-
-        <div th:unless="${#lists.isEmpty(orders)}" class="orders-list">
-            <div th:each="order : ${orders}" class="order-card">
-                <div class="order-header">
-                    <h3>Заказ <a th:href="@{/orders/{id}(id=${order.orderNumber})}" th:text="${order.orderNumber}"></a></h3>
-                    <span class="order-date" th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+        <section class="animate">
+            <h2 class="section-title">История заказов</h2>
+            
+            <div class="card glass controls-bar" style="background: var(--bg-surface); padding: 1.5rem; display: flex; gap: 1rem; align-items: center; border-radius: 20px; margin-bottom: 3rem;">
+                <div style="flex: 1;">
+                    <input type="text" id="orderSearch" placeholder="Поиск по номеру заказа..." onkeyup="filterOrders()" style="margin-bottom: 0;">
                 </div>
-
-                <div class="order-info">
-                    <p><strong>Статус:</strong>
-                        <span class="status-badge" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
-                    </p>
-                    <p><strong>Сумма:</strong> <span th:text="${#numbers.formatDecimal(order.total, 0, 2)} + ' ₽'"></span></p>
-                    <p><strong>Товаров:</strong> <span th:text="${#lists.size(order.items)}"></span></p>
-                </div>
-
-                <div class="order-actions">
-                    <a th:href="@{/orders/{id}(id=${order.orderNumber})}" class="btn btn-secondary">Подробнее</a>
+                <div style="display: flex; gap: 1rem;">
+                    <select id="statusFilter" onchange="filterOrders()" style="margin-bottom: 0; width: 200px;">
+                        <option value="all">Все статусы</option>
+                        <option value="PAID">Оплачено</option>
+                        <option value="CHECKOUT">В обработке</option>
+                        <option value="CANCELLED">Отменено</option>
+                        <option value="COMPLETED">Выполнено</option>
+                    </select>
+                    <select id="dateSort" onchange="sortOrders()" style="margin-bottom: 0; width: 200px;">
+                        <option value="desc">Сначала новые</option>
+                        <option value="asc">Сначала старые</option>
+                    </select>
                 </div>
             </div>
-        </div>
+
+            <div th:if="${error}" class="error-message" th:text="${error}"></div>
+
+            <div th:if="${#lists.isEmpty(orders)}" class="card" style="text-align: center; padding: 4rem;">
+                <p style="font-size: 1.2rem; color: var(--text-dim); margin-bottom: 2rem;">Ваша история заказов пока пуста</p>
+                <a href="/catalog" class="btn btn-primary">Перейти к покупкам</a>
+            </div>
+
+            <div class="orders-grid" id="ordersGrid">
+                <div th:each="order : ${orders}" class="card order-card" 
+                     th:data-status="${order.status}" 
+                     th:data-date="${order.createdAt}">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                        <div>
+                            <span class="status-pill" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
+                            <h3 style="margin-top: 0.75rem; font-size: 1.2rem;" th:text="${order.orderNumber}"></h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.4rem; font-weight: 800; color: var(--primary-color);" 
+                                 th:text="${(order.total != null ? #numbers.formatDecimal(order.total, 0, 0) : '0') + ' ₽'}"></div>
+                            <small style="color: var(--text-dim);" th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy')}"></small>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-top: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-dim); font-size: 0.9rem;" th:text="${order.items.size() + ' поз.'}"></span>
+                            <a th:href="@{/orders/{id}(id=${order.orderNumber})}" class="btn btn-secondary" style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Детали</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
+
+    <footer>
+        <div class="container">
+            <a href="/" class="footer-logo"><span>Electro</span>Glass</a>
+            <div class="footer-links">
+                <a href="/catalog" class="footer-link">Каталог</a>
+                <a href="/orders" class="footer-link">Заказы</a>
+                <a href="/profile" class="footer-link">Профиль</a>
+                <a href="#" class="footer-link">Поддержка</a>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены JTA & WildFly.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function filterOrders() {
+            const search = document.getElementById('orderSearch').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const cards = document.querySelectorAll('.order-card');
+
+            cards.forEach(card => {
+                const num = card.querySelector('h3').textContent.toLowerCase();
+                const cardStatus = card.dataset.status;
+                const matchesSearch = num.includes(search);
+                const matchesStatus = status === 'all' || cardStatus === status;
+                card.style.display = (matchesSearch && matchesStatus) ? 'flex' : 'none';
+            });
+        }
+
+        function sortOrders() {
+            const grid = document.getElementById('ordersGrid');
+            if (!grid) return;
+            const cards = Array.from(grid.children);
+            const order = document.getElementById('dateSort').value;
+
+            cards.sort((a, b) => {
+                const dateA = new Date(a.dataset.date);
+                const dateB = new Date(b.dataset.date);
+                return order === 'desc' ? dateB - dateA : dateA - dateB;
+            });
+
+            cards.forEach(card => grid.appendChild(card));
+        }
+        
+        sortOrders();
+    </script>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

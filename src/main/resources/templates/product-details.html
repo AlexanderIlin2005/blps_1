@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${product != null ? product.name + ' - ElectroGlass' : 'Товар не найден'}"></title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
+            <nav>
+                                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/catalog">Каталог</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
+                </ul>
+
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div th:if="${product == null}" class="card glass animate" style="text-align: center; padding: 5rem;">
+            <h2>Товар не найден</h2>
+            <p style="color: var(--text-dim); margin: 1rem 0 2rem;">К сожалению, мы не смогли найти этот инновационный девайс.</p>
+            <a href="/catalog" class="btn btn-primary">Вернуться в каталог</a>
+        </div>
+
+        <div th:if="${product != null}" class="animate">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; margin-top: 2rem;">
+                <!-- Product Visual -->
+                <div class="card glass" style="display: flex; align-items: center; justify-content: center; font-size: 10rem; min-height: 500px;">
+                    <span th:text="${product.name.split(' ')[0]}"></span>
+                </div>
+
+                <!-- Product Info -->
+                <div style="display: flex; flex-direction: column; justify-content: center;">
+                    <div style="margin-bottom: 2rem;">
+                        <span class="status-pill" style="background: rgba(227, 6, 19, 0.1); color: var(--primary-color); border: 1px solid var(--primary-glow); margin-bottom: 1rem; display: inline-block;" th:text="${product.category}"></span>
+                        <h2 style="font-size: 3rem; font-weight: 800; margin-bottom: 1rem;" th:text="${product.name.substring(product.name.indexOf(' ') + 1)}"></h2>
+                        <p style="font-size: 1.2rem; color: var(--text-dim);" th:text="${product.description}"></p>
+                    </div>
+
+                    <div class="card glass" style="background: var(--bg-surface); padding: 2rem; border-radius: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <div style="font-size: 2.5rem; font-weight: 800; color: var(--primary-color);" th:text="${#numbers.formatDecimal(product.price, 0, 0) + ' ₽'}"></div>
+                            <div style="color: #28a745; font-weight: 600;">● В наличии</div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" style="flex: 2; padding: 1.2rem;" th:onclick="addToCart([[${product.sku}]], [[${product.name}]], [[${product.price}]])">
+                                Добавить в корзину
+                            </button>
+                            <a href="/catalog" class="btn btn-secondary" style="flex: 1;">Назад</a>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 3rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="card glass" style="padding: 1.5rem;">
+                            <h4 style="margin-bottom: 0.5rem;">Гарантия</h4>
+                            <p style="color: var(--text-dim); font-size: 0.9rem;">24 месяца официальной гарантии ElectroGlass</p>
+                        </div>
+                        <div class="card glass" style="padding: 1.5rem;">
+                            <h4 style="margin-bottom: 0.5rem;">Доставка</h4>
+                            <p style="color: var(--text-dim); font-size: 0.9rem;">Бесплатная экспресс-доставка завтра</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="cart-notification" class="glass" style="display: none; position: fixed; bottom: 30px; right: 30px; padding: 1rem 2rem; border-radius: 100px; background: var(--primary-color); color: white; box-shadow: 0 10px 30px var(--primary-glow); z-index: 2000; font-weight: 600;">
+        Товар добавлен в корзину
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Modern JTA Architecture.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function addToCart(sku, name, price) {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const existing = cart.find(item => item.sku === sku);
+            if (existing) existing.quantity++;
+            else cart.push({ sku, name, price, quantity: 1 });
+            
+            localStorage.setItem('cart', JSON.stringify(cart));
+            localStorage.setItem('cartTotal', cart.reduce((sum, item) => sum + item.price * item.quantity, 0));
+            
+            const note = document.getElementById('cart-notification');
+            note.style.display = 'block';
+            setTimeout(() => note.style.display = 'none', 2000);
+        }
+    </script>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
+</body>
+</html>

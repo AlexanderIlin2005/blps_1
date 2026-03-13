@@ -4,8 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.sashil.dto.CartItemDTO;
 import ru.sashil.dto.CreateOrderRequest;
 import ru.sashil.dto.OrderResponse;
@@ -17,7 +18,6 @@ import ru.sashil.repository.ProductRepository;
 import ru.sashil.repository.UserRepository;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,109 +34,105 @@ public class OrderService {
     private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
 
-    
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     private PaymentService paymentService;
-    private InventoryService inventoryService;
 
     @Autowired
     public void setPaymentService(@Lazy PaymentService paymentService) {
         this.paymentService = paymentService;
     }
 
-    @Autowired
-    public void setInventoryService(@Lazy InventoryService inventoryService) {
-        this.inventoryService = inventoryService;
-    }
-
-    @Transactional
+    @PreAuthorize("hasAuthority('CREATE_ORDER')")
     public OrderResponse createOrder(CreateOrderRequest request) {
         log.info("Creating new order for customer: {}", request.getCustomerName());
 
-        User user = userRepository.findById(request.getCustomerId())
-            .orElseThrow(() -> new RuntimeException("User not found"));
+        return transactionTemplate.execute(status -> {
+            User user = userRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        
-        for (CartItemDTO item : request.getItems()) {
-            Product product = productRepository.findBySku(item.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+            List<OrderItem> orderItems = new ArrayList<>();
+            double subtotal = 0;
 
-            if (product.getStockQuantity() < item.getQuantity()) {
-                throw new RuntimeException("Not enough stock for product: " + product.getName());
+            for (CartItemDTO item : request.getItems()) {
+                Product product = productRepository.findBySku(item.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+
+                if (product.getStockQuantity() < item.getQuantity()) {
+                    throw new RuntimeException("Not enough stock for product: " + product.getName());
+                }
+                
+                // Reduce stock
+                product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
+                productRepository.save(product);
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setProductId(item.getProductId());
+                orderItem.setProductName(product.getName()); 
+                orderItem.setQuantity(item.getQuantity());
+                orderItem.setPrice(product.getPrice()); 
+                orderItem.setTotal(product.getPrice() * item.getQuantity());
+                
+                orderItems.add(orderItem);
+                subtotal += orderItem.getTotal();
             }
-        }
 
-        
-        Order order = new Order();
-        order.setOrderNumber(generateOrderNumber());
-        order.setUser(user); 
-        order.setCustomerId(request.getCustomerId());
-        order.setCustomerName(request.getCustomerName());
-        order.setCustomerEmail(request.getCustomerEmail());
-        order.setCustomerPhone(request.getCustomerPhone());
-        order.setStatus(OrderStatus.CHECKOUT);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUpdatedAt(LocalDateTime.now());
-        order.setDeliveryType(request.getDeliveryType());
+            Order order = new Order();
+            order.setOrderNumber(generateOrderNumber());
+            order.setUser(user); 
+            order.setCustomerId(request.getCustomerId());
+            order.setCustomerName(request.getCustomerName());
+            order.setCustomerEmail(request.getCustomerEmail());
+            order.setCustomerPhone(request.getCustomerPhone());
+            order.setStatus(OrderStatus.CHECKOUT);
+            order.setCreatedAt(LocalDateTime.now());
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setDeliveryType(request.getDeliveryType());
+            
+            if (request.getDeliveryType() == DeliveryType.COURIER) {
+                order.setDeliveryAddress(request.getDeliveryAddress());
+            } else {
+                order.setPickupPointId(request.getPickupPointId());
+                order.setPickupPointAddress(request.getPickupPointAddress());
+            }
 
-        if (request.getDeliveryType() == DeliveryType.COURIER) {
-            order.setDeliveryAddress(request.getDeliveryAddress());
-        } else {
-            order.setPickupPointId(request.getPickupPointId());
-            order.setPickupPointAddress(request.getPickupPointAddress());
-        }
+            order.setItems(orderItems);
+            for(OrderItem item : orderItems) {
+                item.setOrder(order);
+            }
+            
+            order.setSubtotal(subtotal);
+            order.setDiscount(0.0);
+            order.setTotal(subtotal);
+            order.setPaymentStatus(PaymentStatus.PENDING);
 
-        
-        List<OrderItem> orderItems = new ArrayList<>();
-        double subtotal = 0;
+            Order savedOrder = orderRepository.save(order);
+            addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Заказ создан");
 
-        for (CartItemDTO item : request.getItems()) {
-            Product product = productRepository.findBySku(item.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setProductId(item.getProductId());
-            orderItem.setProductName(product.getName()); 
-            orderItem.setQuantity(item.getQuantity());
-            orderItem.setPrice(product.getPrice()); 
-            orderItem.setTotal(product.getPrice() * item.getQuantity());
-            orderItem.setOrder(order);
-
-            orderItems.add(orderItem);
-            subtotal += orderItem.getTotal();
-        }
-
-        order.setItems(orderItems);
-        order.setSubtotal(subtotal);
-        order.setDiscount(0.0);
-        order.setTotal(subtotal);
-        order.setPaymentStatus(PaymentStatus.PENDING);
-
-        Order savedOrder = orderRepository.save(order);
-
-        
-        addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Заказ создан");
-
-        log.info("Order created with number: {}", savedOrder.getOrderNumber());
-
-        return mapToResponse(savedOrder);
+            log.info("Order created with number: {}", savedOrder.getOrderNumber());
+            return mapToResponse(savedOrder);
+        });
     }
 
-    @Transactional
     public OrderResponse processPayment(String orderNumber, String paymentMethod, String paymentDetails) {
         log.info("Processing payment for order: {}", orderNumber);
 
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+        Order order = transactionTemplate.execute(status -> {
+            Order o = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
-        order.setPaymentMethod(paymentMethod);
-        order.setPaymentStatus(PaymentStatus.PROCESSING);
-        order.setStatus(OrderStatus.PAYMENT_PROCESSING);
-        orderRepository.save(order);
+            o.setPaymentMethod(paymentMethod);
+            o.setPaymentStatus(PaymentStatus.PROCESSING);
+            o.setStatus(OrderStatus.PAYMENT_PROCESSING);
+            orderRepository.save(o);
 
-        addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,
-            "Обработка платежа методом: " + getPaymentMethodName(paymentMethod));
+            addStatusHistory(o, OrderStatus.PAYMENT_PROCESSING,
+                "Обработка платежа методом: " + getPaymentMethodName(paymentMethod));
+            return o;
+        });
 
-        
+        // External API call OUTSIDE of the transaction
         PaymentResponse paymentResponse = paymentService.processPayment(
             orderNumber,
             paymentMethod,
@@ -144,110 +140,110 @@ public class OrderService {
             paymentDetails
         );
 
-        if ("SUCCESS".equals(paymentResponse.getStatus())) {
-            order.setPaymentId(paymentResponse.getPaymentId());
-            order.setPaymentStatus(PaymentStatus.COMPLETED);
-            order.setStatus(OrderStatus.PAID);
-            order.setPaidAt(LocalDateTime.now());
-            orderRepository.save(order);
+        return transactionTemplate.execute(status -> {
+            Order o = orderRepository.findByOrderNumber(orderNumber).get();
 
-            addStatusHistory(order, OrderStatus.PAID,
-                "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
+            if ("SUCCESS".equals(paymentResponse.getStatus())) {
+                o.setPaymentId(paymentResponse.getPaymentId());
+                o.setPaymentStatus(PaymentStatus.COMPLETED);
+                o.setStatus(OrderStatus.PAID);
+                o.setPaidAt(LocalDateTime.now());
+                orderRepository.save(o);
 
-            notificationService.sendOrderConfirmation(order);
-            log.info("Order {} paid successfully", orderNumber);
+                addStatusHistory(o, OrderStatus.PAID,
+                    "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
 
-        } else if ("PENDING".equals(paymentResponse.getStatus())) {
-            
-            order.setPaymentId(paymentResponse.getPaymentId());
-            
-            orderRepository.save(order);
-            
-            addStatusHistory(order, OrderStatus.PAYMENT_PROCESSING,
-                "Запрос на оплату отправлен в очередь (ЮKassa). Ожидайте подтверждения.");
-            log.info("Order {} payment is pending in queue", orderNumber);
-            
-        } else if ("FAILED".equals(paymentResponse.getStatus())) {
-            order.setPaymentStatus(PaymentStatus.FAILED);
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
-            orderRepository.save(order);
+                notificationService.sendOrderConfirmation(o);
+                log.info("Order {} paid successfully", orderNumber);
 
-            addStatusHistory(order, OrderStatus.CANCELLED,
-                "Оплата не удалась: " + paymentResponse.getMessage());
-        }
+            } else if ("PENDING".equals(paymentResponse.getStatus())) {
+                o.setPaymentId(paymentResponse.getPaymentId());
+                orderRepository.save(o);
+                addStatusHistory(o, OrderStatus.PAYMENT_PROCESSING,
+                    "Запрос на оплату отправлен в очередь (ЮKassa). Ожидайте подтверждения.");
+            } else if ("FAILED".equals(paymentResponse.getStatus())) {
+                o.setPaymentStatus(PaymentStatus.FAILED);
+                o.setStatus(OrderStatus.CANCELLED);
+                o.setCancelledAt(LocalDateTime.now());
+                orderRepository.save(o);
 
-        return mapToResponse(order);
+                addStatusHistory(o, OrderStatus.CANCELLED,
+                    "Оплата не удалась: " + paymentResponse.getMessage());
+            }
+            return mapToResponse(o);
+        });
     }
 
-    @Transactional
     public void updateOrderStatus(String orderNumber, OrderStatus newStatus, String description) {
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+        transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
-        OrderStatus oldStatus = order.getStatus();
-        order.setStatus(newStatus);
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        addStatusHistory(order, newStatus, description);
-
-        log.info("Order {} status changed: {} -> {} ({})",
-            orderNumber, oldStatus, newStatus, description);
-    }
-
-    @Transactional
-    public void updateTracking(String orderNumber, String trackingNumber) {
-        log.info("Updating tracking for order: {} with tracking: {}", orderNumber, trackingNumber);
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-
-        order.setTrackingNumber(trackingNumber);
-        order.setStatus(OrderStatus.SHIPPED);
-        order.setShippedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        addStatusHistory(order, OrderStatus.SHIPPED,
-            "Трек-номер сгенерирован: " + trackingNumber);
-
-        notificationService.sendTrackingInfo(order);
-    }
-
-    @Transactional
-    public void completeDelivery(String orderNumber) {
-        log.info("Completing delivery for order: {}", orderNumber);
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-
-        order.setStatus(OrderStatus.COMPLETED);
-        order.setDeliveredAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        addStatusHistory(order, OrderStatus.COMPLETED,
-            "Заказ получен покупателем");
-    }
-
-    @Transactional
-    public void cancelUnpaidOrder(String orderNumber) {
-        log.info("Cancelling unpaid order: {}", orderNumber);
-
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-
-        if (order.getPaymentStatus() == PaymentStatus.PENDING ||
-            order.getPaymentStatus() == PaymentStatus.PROCESSING) {
-            order.setPaymentStatus(PaymentStatus.TIMEOUT);
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
+            OrderStatus oldStatus = order.getStatus();
+            order.setStatus(newStatus);
+            order.setUpdatedAt(LocalDateTime.now());
             orderRepository.save(order);
 
-            addStatusHistory(order, OrderStatus.CANCELLED,
-                "Заказ отменен по таймауту оплаты (30 минут)");
+            addStatusHistory(order, newStatus, description);
 
-            notificationService.sendOrderCancelledNotification(order);
-        }
+            log.info("Order {} status changed: {} -> {} ({})",
+                orderNumber, oldStatus, newStatus, description);
+            return null;
+        });
+    }
+
+    public void updateTracking(String orderNumber, String trackingNumber) {
+        transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+            order.setTrackingNumber(trackingNumber);
+            order.setStatus(OrderStatus.SHIPPED);
+            order.setShippedAt(LocalDateTime.now());
+            orderRepository.save(order);
+
+            addStatusHistory(order, OrderStatus.SHIPPED,
+                "Трек-номер сгенерирован: " + trackingNumber);
+
+            notificationService.sendTrackingInfo(order);
+            return null;
+        });
+    }
+
+    public void completeDelivery(String orderNumber) {
+        transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+            order.setStatus(OrderStatus.COMPLETED);
+            order.setDeliveredAt(LocalDateTime.now());
+            orderRepository.save(order);
+
+            addStatusHistory(order, OrderStatus.COMPLETED,
+                "Заказ получен покупателем");
+            return null;
+        });
+    }
+
+    public void cancelUnpaidOrder(String orderNumber) {
+        transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+            if (order.getPaymentStatus() == PaymentStatus.PENDING ||
+                order.getPaymentStatus() == PaymentStatus.PROCESSING) {
+                order.setPaymentStatus(PaymentStatus.TIMEOUT);
+                order.setStatus(OrderStatus.CANCELLED);
+                order.setCancelledAt(LocalDateTime.now());
+                orderRepository.save(order);
+
+                addStatusHistory(order, OrderStatus.CANCELLED,
+                    "Заказ отменен по таймауту оплаты (30 минут)");
+
+                notificationService.sendOrderCancelledNotification(order);
+            }
+            return null;
+        });
     }
 
     private void addStatusHistory(Order order, OrderStatus status, String description) {
@@ -260,26 +256,38 @@ public class OrderService {
     }
 
     public OrderResponse getOrder(String orderNumber) {
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-        return mapToResponse(order);
+        return transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+            return mapToResponse(order);
+        });
     }
 
+    @PreAuthorize("hasAuthority('READ_OWN_ORDERS')")
     public OrderResponse getOrderForUser(String orderNumber, Long userId) {
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-        
-        if (order.getUser() != null && !order.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Access denied: This order belongs to another user");
-        }
-        
-        return mapToResponse(order);
+        return transactionTemplate.execute(status -> {
+            Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+            
+            Long orderUserId = (order.getUser() != null) ? order.getUser().getId() : null;
+            log.info("Checking access for order {}: orderUserId={}, currentUserId={}", 
+                orderNumber, orderUserId, userId);
+
+            if (orderUserId != null && !orderUserId.equals(userId)) {
+                throw new RuntimeException("Access denied: This order belongs to another user (ID: " + orderUserId + ", yours: " + userId + ")");
+            }
+            
+            return mapToResponse(order);
+        });
     }
 
+    @PreAuthorize("hasAuthority('READ_OWN_ORDERS')")
     public List<OrderResponse> getCustomerOrders(Long customerId) {
-        return orderRepository.findByCustomerId(customerId).stream()
-            .map(this::mapToResponse)
-            .collect(Collectors.toList());
+        return transactionTemplate.execute(status -> {
+            return orderRepository.findByCustomerId(customerId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+        });
     }
 
     private String generateOrderNumber() {
@@ -320,7 +328,6 @@ public class OrderService {
             .collect(Collectors.toList());
         response.setItems(items);
 
-        
         List<OrderStatusHistory> history = historyRepository.findByOrderOrderByChangedAtDesc(order);
         List<OrderResponse.StatusHistoryDTO> historyDTOs = history.stream()
             .map(h -> new OrderResponse.StatusHistoryDTO(

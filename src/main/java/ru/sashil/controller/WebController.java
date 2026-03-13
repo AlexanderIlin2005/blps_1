@@ -9,6 +9,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import ru.sashil.model.User;
 import ru.sashil.service.UserService;
+import ru.sashil.repository.ProductRepository;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @Controller
 @RequiredArgsConstructor
@@ -16,6 +18,7 @@ import ru.sashil.service.UserService;
 public class WebController {
 
     private final UserService userService;
+    private final ProductRepository productRepository;
 
     @GetMapping("/")
     public String index() {
@@ -25,6 +28,17 @@ public class WebController {
     @GetMapping("/catalog")
     public String catalog() {
         return "catalog";
+    }
+
+    @GetMapping("/cart")
+    public String cart() {
+        return "cart";
+    }
+
+    @GetMapping("/product/{sku}")
+    public String productDetails(@PathVariable String sku, Model model) {
+        productRepository.findBySku(sku).ifPresent(p -> model.addAttribute("product", p));
+        return "product-details";
     }
 
     @GetMapping("/checkout")

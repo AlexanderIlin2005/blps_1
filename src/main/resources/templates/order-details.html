@@ -3,167 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Детали заказа</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Заказ - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Детали заказа</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
                     <li sec:authorize="isAuthenticated()">
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div th:if="${param.success}" class="success-message">
-            Заказ успешно создан! Статус заказа будет обновляться автоматически.
+        <div th:if="${order == null}" class="card glass animate" style="text-align: center; padding: 5rem;">
+            <h2>Заказ не найден</h2>
+            <a href="/orders" class="btn btn-primary" style="margin-top: 2rem;">Вернуться к заказам</a>
         </div>
 
-        <div th:if="${param.payment == 'success'}" class="success-message">
-            Оплата прошла успешно! Начат процесс обработки заказа.
-        </div>
+        <div th:if="${order != null}" class="animate">
+            <h2 class="section-title">Заказ #<span th:text="${order.orderNumber}"></span></h2>
 
-        <div th:if="${param.payment == 'failed'}" class="error-message">
-            Ошибка при оплате. Пожалуйста, попробуйте снова.
-        </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <!-- Info Section -->
+                <div>
+                    <div class="info-backing">
+                        <div class="info-row">
+                            <span class="info-label">Статус</span>
+                            <span class="status-pill" th:classappend="'status-' + ${order.status}" th:text="${order.status}"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Дата создания</span>
+                            <span class="info-value" th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm:ss')}"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Способ получения</span>
+                            <span class="info-value" th:text="${order.deliveryType == 'COURIER' ? 'Курьер' : 'Самовывоз'}"></span>
+                        </div>
+                        <div class="info-row" th:if="${order.deliveryAddress}">
+                            <span class="info-label">Адрес доставки</span>
+                            <span class="info-value" th:text="${order.deliveryAddress}"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Оплата</span>
+                            <span class="info-value" th:text="${order.paymentStatus}"></span>
+                        </div>
+                        <div class="info-row" th:if="${order.trackingNumber}">
+                            <span class="info-label">Трек-номер</span>
+                            <span class="info-value" th:text="${order.trackingNumber}"></span>
+                        </div>
+                    </div>
 
-        <div id="order-details" class="order-details">
-            <div th:if="${order == null}" class="loading">Загрузка...</div>
-
-            <div th:if="${order != null}">
-                <h2>Заказ #<span th:text="${order.orderNumber}" id="order-number"></span></h2>
-
-                <div class="order-info" id="order-info">
-                    <p><strong>Текущий статус:</strong>
-                        <span class="status-badge" th:classappend="'status-' + ${order.status}" id="current-status" th:text="${order.status}"></span>
-                    </p>
-                    <p><strong>Дата создания:</strong>
-                        <span th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm:ss')}"></span>
-                    </p>
-                    <p><strong>Способ получения:</strong>
-                        <span th:text="${order.deliveryType == 'COURIER' ? 'Курьером' : 'Самовывоз'}"></span>
-                    </p>
-                    <p th:if="${order.deliveryAddress != null}">
-                        <strong>Адрес доставки:</strong> <span th:text="${order.deliveryAddress}"></span>
-                    </p>
-                    <p th:if="${order.pickupPointAddress != null}">
-                        <strong>Пункт самовывоза:</strong> <span th:text="${order.pickupPointAddress}"></span>
-                    </p>
-                    <p><strong>Способ оплаты:</strong>
-                        <span th:text="${order.paymentMethod != null ?
-                            (order.paymentMethod == 'card' ? 'Банковская карта' :
-                             order.paymentMethod == 'sbp' ? 'СБП' : 'Рассрочка') : 'Не выбран'}"></span>
-                    </p>
-                    <p><strong>Статус оплаты:</strong>
-                        <span th:text="${order.paymentStatus != null ? order.paymentStatus : 'Ожидает'}" id="payment-status"></span>
-                    </p>
-                    <p th:if="${order.trackingNumber != null}" id="tracking-container">
-                        <strong>Трек-номер:</strong> <span th:text="${order.trackingNumber}" id="tracking-number"></span>
-                    </p>
-                </div>
-
-                <h3>Состав заказа</h3>
-                <table class="order-items-table">
-                    <thead>
-                        <tr>
-                            <th>Товар</th>
-                            <th>Кол-во</th>
-                            <th>Цена</th>
-                            <th>Сумма</th>
-                        </tr>
-                    </thead>
-                    <tbody id="order-items-body">
-                        <tr th:each="item : ${order.items}">
-                            <td th:text="${item.productName}"></td>
-                            <td th:text="${item.quantity}"></td>
-                            <td th:text="${#numbers.formatDecimal(item.price, 0, 2) + ' ₽'}"></td>
-                            <td th:text="${#numbers.formatDecimal(item.price * item.quantity, 0, 2) + ' ₽'}"></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="order-total">
-                    <strong>Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 2) + ' ₽'}" id="order-total"></span></strong>
-                </div>
-
-
-                <div class="status-history">
-                    <h3>История статусов</h3>
-                    <div class="timeline" id="status-timeline">
-                        <div th:each="history : ${order.statusHistory}" class="timeline-item">
-                            <div class="timeline-time" th:text="${#temporals.format(history.changedAt, 'dd.MM.yyyy HH:mm:ss')}"></div>
-                            <div class="timeline-content">
-                                <span class="status-badge small" th:classappend="'status-' + ${history.status}"
-                                      th:text="${history.status}"></span>
-                                <span class="timeline-description" th:text="${history.description}"></span>
-                            </div>
+                    <div class="card glass">
+                        <h3 style="margin-bottom: 1.5rem;">Состав заказа</h3>
+                        <table class="glass-table">
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Кол-во</th>
+                                    <th>Сумма</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="item : ${order.items}">
+                                    <td th:text="${item.productName}"></td>
+                                    <td th:text="${item.quantity}"></td>
+                                    <td th:text="${(item.price != null ? #numbers.formatDecimal(item.price * item.quantity, 0, 0) : '0') + ' ₽'}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div style="text-align: right; margin-top: 2rem; font-size: 1.5rem; font-weight: 800; color: var(--primary-color);">
+                            Итого: <span th:text="${(order.total != null ? #numbers.formatDecimal(order.total, 0, 0) : '0') + ' ₽'}"></span>
                         </div>
                     </div>
                 </div>
 
-
-                <div th:if="${order.paymentStatus == null or order.paymentStatus == 'PENDING' or order.paymentStatus == 'FAILED'}" class="payment-section" id="payment-section">
-                    <h3>Оплатить заказ</h3>
-
-                    <form th:action="@{/orders/{id}/payment(id=${order.orderNumber})}" method="post">
-                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-
-                        <div class="form-group">
-                            <label>
-                                <input type="radio" name="paymentMethod" value="card" checked onchange="togglePaymentFields()">
-                                Банковская карта
-                            </label>
-                            <label>
-                                <input type="radio" name="paymentMethod" value="sbp" onchange="togglePaymentFields()">
-                                СБП
-                            </label>
-                        </div>
-
-                        <div id="card-details">
-                            <div class="form-group">
-                                <label for="cardNumber">Номер карты</label>
-                                <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456">
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="cardExpiry">Срок действия</label>
-                                    <input type="text" id="cardExpiry" name="cardExpiry" placeholder="MM/YY">
-                                </div>
-                                <div class="form-group">
-                                    <label for="cardCvv">CVV</label>
-                                    <input type="text" id="cardCvv" name="cardCvv" placeholder="123">
-                                </div>
+                <!-- Status History Section -->
+                <div>
+                    <div class="status-history-container">
+                        <h3 style="margin-bottom: 2rem; color: var(--text-main);">История перемещений</h3>
+                        <div class="timeline">
+                            <div th:each="h : ${order.statusHistory}" class="timeline-item">
+                                <div style="color: var(--text-dim); font-size: 0.8rem; margin-bottom: 0.5rem;" th:text="${#temporals.format(h.changedAt, 'dd.MM HH:mm')}"></div>
+                                <div style="font-weight: 600; color: var(--text-main);" th:text="${h.description}"></div>
+                                <div class="status-pill" th:classappend="'status-' + ${h.status}" th:text="${h.status}" style="margin-top: 0.5rem; transform: scale(0.8); transform-origin: left;"></div>
                             </div>
                         </div>
-
-                        <div id="sbp-details" style="display: none;">
-                            <div class="form-group">
-                                <label for="phoneNumber">Номер телефона</label>
-                                <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="+7 (999) 123-45-67">
-                            </div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Оплатить</button>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="order-actions">
-                    <a href="/orders" class="btn btn-secondary">Все заказы</a>
-                    <a href="/catalog" class="btn btn-primary">Продолжить покупки</a>
+                    </div>
+                    
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <a href="/orders" class="btn btn-secondary" style="flex: 1;">Назад к списку</a>
+                        <a href="/catalog" class="btn btn-primary" style="flex: 1;">За покупками</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -171,255 +116,18 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Интернет-магазин</p>
+            <a href="/" class="footer-logo"><span>Electro</span>Glass</a>
+            <div class="footer-links">
+                <a href="/catalog" class="footer-link">Каталог</a>
+                <a href="/orders" class="footer-link">Заказы</a>
+                <a href="/profile" class="footer-link">Профиль</a>
+                <a href="#" class="footer-link">Поддержка</a>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены JTA & WildFly.</p>
+            </div>
         </div>
     </footer>
-
-    <style>
-        .status-history {
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .timeline {
-            position: relative;
-            padding-left: 2rem;
-        }
-
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 7px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #e30613;
-        }
-
-        .timeline-item {
-            position: relative;
-            margin-bottom: 1.5rem;
-        }
-
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -2rem;
-            top: 0.5rem;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #e30613;
-            border: 2px solid white;
-            box-shadow: 0 0 0 2px #e30613;
-        }
-
-        .timeline-time {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 0.25rem;
-        }
-
-        .timeline-content {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .status-badge.small {
-            font-size: 0.75rem;
-            padding: 0.15rem 0.5rem;
-        }
-
-        .timeline-description {
-            color: #333;
-        }
-
-        .new-status {
-            animation: highlight 2s ease;
-        }
-
-        @keyframes highlight {
-            0% {
-                background-color: rgba(227, 6, 19, 0.2);
-            }
-            100% {
-                background-color: transparent;
-            }
-        }
-    </style>
-
-    <script>
-        function togglePaymentFields() {
-            const cardDetails = document.getElementById('card-details');
-            const sbpDetails = document.getElementById('sbp-details');
-            const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-
-            if (selectedMethod === 'card') {
-                cardDetails.style.display = 'block';
-                sbpDetails.style.display = 'none';
-            } else {
-                cardDetails.style.display = 'none';
-                sbpDetails.style.display = 'block';
-            }
-        }
-
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('success')) {
-                localStorage.removeItem('cart');
-                localStorage.removeItem('cartTotal');
-                console.log('Cart cleared after order');
-            }
-
-
-            const orderNumber = document.getElementById('order-number')?.textContent;
-            if (orderNumber) {
-                startAutoRefresh(orderNumber);
-            }
-        });
-
-        let refreshInterval;
-
-        function startAutoRefresh(orderNumber) {
-
-            refreshInterval = setInterval(() => refreshOrderStatus(orderNumber), 5000);
-        }
-
-        function refreshOrderStatus(orderNumber) {
-            fetch(`/api/orders/${orderNumber}`)
-                .then(response => response.json())
-                .then(data => {
-                    updateOrderStatus(data);
-                    updateStatusHistory(data.statusHistory);
-                    checkPaymentSection(data);
-                })
-                .catch(error => console.error('Error refreshing order status:', error));
-        }
-
-        function updateOrderStatus(order) {
-            const currentStatusElem = document.getElementById('current-status');
-            if (currentStatusElem) {
-                const oldStatus = currentStatusElem.textContent;
-                const newStatus = order.status;
-
-                if (oldStatus !== newStatus) {
-                    currentStatusElem.textContent = newStatus;
-                    currentStatusElem.className = 'status-badge status-' + newStatus;
-                    currentStatusElem.classList.add('new-status');
-                    setTimeout(() => currentStatusElem.classList.remove('new-status'), 2000);
-                }
-            }
-
-
-            const paymentStatusElem = document.getElementById('payment-status');
-            if (paymentStatusElem && order.paymentStatus) {
-                paymentStatusElem.textContent = order.paymentStatus;
-            }
-
-
-            const trackingContainer = document.getElementById('tracking-container');
-            const trackingNumberElem = document.getElementById('tracking-number');
-
-            if (order.trackingNumber) {
-                if (trackingNumberElem) {
-                    trackingNumberElem.textContent = order.trackingNumber;
-                } else if (!trackingContainer) {
-                    const orderInfo = document.getElementById('order-info');
-                    const newTrackingP = document.createElement('p');
-                    newTrackingP.id = 'tracking-container';
-                    newTrackingP.innerHTML = '<strong>Трек-номер:</strong> <span id="tracking-number">' + order.trackingNumber + '</span>';
-                    orderInfo.appendChild(newTrackingP);
-                }
-            }
-        }
-
-        function updateStatusHistory(history) {
-            if (!history || history.length === 0) return;
-
-            const timeline = document.getElementById('status-timeline');
-            if (!timeline) return;
-
-
-            const currentItems = timeline.children.length;
-
-
-            if (history.length > currentItems) {
-
-                timeline.innerHTML = '';
-
-                history.forEach(item => {
-                    const date = new Date(item.changedAt);
-                    const formattedDate = formatDate(date);
-
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'timeline-item';
-
-                    const statusSpan = document.createElement('span');
-                    statusSpan.className = 'status-badge small status-' + item.status;
-                    statusSpan.textContent = item.status;
-
-                    const descSpan = document.createElement('span');
-                    descSpan.className = 'timeline-description';
-                    descSpan.textContent = item.description || '';
-
-                    const contentDiv = document.createElement('div');
-                    contentDiv.className = 'timeline-content';
-                    contentDiv.appendChild(statusSpan);
-                    contentDiv.appendChild(descSpan);
-
-                    const timeDiv = document.createElement('div');
-                    timeDiv.className = 'timeline-time';
-                    timeDiv.textContent = formattedDate;
-
-                    itemDiv.appendChild(timeDiv);
-                    itemDiv.appendChild(contentDiv);
-
-                    timeline.appendChild(itemDiv);
-                });
-
-
-                const newItems = timeline.children;
-                for (let i = 0; i < newItems.length; i++) {
-                    if (i >= currentItems) {
-                        newItems[i].classList.add('new-status');
-                        setTimeout(() => newItems[i].classList.remove('new-status'), 2000);
-                    }
-                }
-            }
-        }
-
-        function formatDate(date) {
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
-        }
-
-        function checkPaymentSection(order) {
-            const paymentSection = document.getElementById('payment-section');
-            if (paymentSection) {
-                const shouldShow = !order.paymentStatus ||
-                                  order.paymentStatus === 'PENDING' ||
-                                  order.paymentStatus === 'FAILED';
-
-                paymentSection.style.display = shouldShow ? 'block' : 'none';
-            }
-        }
-
-
-        window.addEventListener('beforeunload', function() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-            }
-        });
-    </script>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

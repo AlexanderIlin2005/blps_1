@@ -12,4 +12,8 @@ public class CartItemDTO {
     private String productName;
     private Integer quantity;
     private Double price;
+    
+    public Double getTotal() {
+        return (price != null && quantity != null) ? price * quantity : 0.0;
+    }
 }

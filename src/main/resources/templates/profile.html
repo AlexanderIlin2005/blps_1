@@ -1,47 +1,82 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Личный кабинет</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Профиль - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Личный кабинет</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li><a href="/orders">Мои заказы</a></li>
-                    <li>
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="profile">
-            <h2>Профиль пользователя</h2>
-
-            <div class="profile-info">
-                <p><strong>Имя пользователя:</strong> <span th:text="${user.username}"></span></p>
-                <p><strong>Email:</strong> <span th:text="${user.email}"></span></p>
-                <p><strong>Полное имя:</strong> <span th:text="${user.fullName}"></span></p>
-                <p><strong>Телефон:</strong> <span th:text="${user.phone}"></span></p>
-                <p><strong>Дата регистрации:</strong> <span th:text="${#temporals.format(user.createdAt, 'dd.MM.yyyy HH:mm')}"></span></p>
+        <div class="card glass animate" style="max-width: 800px; margin: 4rem auto;">
+            <h2 class="section-title" style="font-size: 2rem; margin-bottom: 2rem;">Профиль пользователя</h2>
+            
+            <div class="info-backing">
+                <div class="info-row">
+                    <span class="info-label">Имя пользователя</span>
+                    <span class="info-value" th:text="${user.username}"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span class="info-value" th:text="${user.email}"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Полное имя</span>
+                    <span class="info-value" th:text="${user.fullName ?: 'Не указано'}"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Телефон</span>
+                    <span class="info-value" th:text="${user.phone ?: 'Не указано'}"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Дата регистрации</span>
+                    <span class="info-value" th:text="${#temporals.format(user.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                </div>
             </div>
 
-            <div class="profile-actions">
-                <a href="/orders" class="btn btn-primary">Мои заказы</a>
-                <a href="/catalog" class="btn btn-secondary">Продолжить покупки</a>
+            <div style="display: flex; gap: 1.5rem; margin-top: 1rem;">
+                <a href="/orders" class="btn btn-primary" style="flex: 1;">Мои заказы</a>
+                <a href="/catalog" class="btn btn-secondary" style="flex: 1;">Продолжить покупки</a>
             </div>
         </div>
     </main>
+
+    <footer>
+        <div class="container">
+            <a href="/" class="footer-logo"><span>Electro</span>Glass</a>
+            <div class="footer-links">
+                <a href="/catalog" class="footer-link">Каталог</a>
+                <a href="/orders" class="footer-link">Заказы</a>
+                <a href="/profile" class="footer-link">Профиль</a>
+                <a href="#" class="footer-link">Поддержка</a>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены JTA & WildFly.</p>
+            </div>
+        </div>
+    </footer>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

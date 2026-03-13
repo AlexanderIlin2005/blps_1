@@ -19,6 +19,8 @@ import ru.sashil.service.UserService;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
 @Controller
 @RequestMapping("/orders")
 @RequiredArgsConstructor
@@ -30,12 +32,19 @@ public class OrderController {
 
     @GetMapping
     public String getUserOrders(Model model) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userService.findByUsername(auth.getName());
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            log.info("Accessing orders for user: {}", auth.getName());
+            User user = userService.findByUsername(auth.getName());
 
-        List<OrderResponse> orders = orderService.getCustomerOrders(user.getId());
-        model.addAttribute("orders", orders);
-        return "orders";
+            List<OrderResponse> orders = orderService.getCustomerOrders(user.getId());
+            model.addAttribute("orders", orders);
+            return "orders";
+        } catch (Exception e) {
+            log.error("Error loading orders page: {}", e.getMessage(), e);
+            model.addAttribute("error", "Не удалось загрузить список заказов: " + e.getMessage());
+            return "orders";
+        }
     }
 
     @GetMapping("/{orderNumber}")
@@ -57,20 +66,19 @@ public class OrderController {
             @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
             @RequestParam(value = "pickupPointId", required = false) String pickupPointId,
             @RequestParam("paymentMethod") String paymentMethod,
-            @RequestParam(value = "items[0].productId", required = false) List<String> productIds,
-            @RequestParam(value = "items[0].productName", required = false) List<String> productNames,
-            @RequestParam(value = "items[0].quantity", required = false) List<Integer> quantities,
-            @RequestParam(value = "items[0].price", required = false) List<Double> prices,
-            Model model) {
+            @RequestParam(value = "productId[]", required = false) List<String> productIds,
+            @RequestParam(value = "productName[]", required = false) List<String> productNames,
+            @RequestParam(value = "quantity[]", required = false) List<Integer> quantities,
+            @RequestParam(value = "price[]", required = false) List<Double> prices,
+            RedirectAttributes redirectAttributes) {
 
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             User user = userService.findByUsername(auth.getName());
 
-            log.info("Creating order for user: {} with {} items, payment method: {}",
+            log.info("Creating order for user: {} with {} products, payment method: {}",
                 user.getUsername(), productIds != null ? productIds.size() : 0, paymentMethod);
 
-            
             List<CartItemDTO> items = new ArrayList<>();
             if (productIds != null && !productIds.isEmpty()) {
                 for (int i = 0; i < productIds.size(); i++) {
@@ -83,7 +91,10 @@ public class OrderController {
                 }
             }
 
-            
+            if (items.isEmpty()) {
+                throw new RuntimeException("Корзина пуста");
+            }
+
             CreateOrderRequest request = new CreateOrderRequest();
             request.setCustomerId(user.getId());
             request.setCustomerName(customerName);
@@ -107,36 +118,22 @@ public class OrderController {
                 }
             }
 
-            
             OrderResponse response = orderService.createOrder(request);
             log.info("Order created successfully: {}", response.getOrderNumber());
 
-            String status = "success";
-            
             if (paymentMethod != null && !paymentMethod.isEmpty()) {
-                log.info("Processing payment for order {} with method {}", response.getOrderNumber(), paymentMethod);
-
-                OrderResponse paidOrder = orderService.processPayment(
+                orderService.processPayment(
                     response.getOrderNumber(),
                     paymentMethod,
                     "" 
                 );
-
-                log.info("Payment processed, status: {}", paidOrder.getPaymentStatus());
-                
-                if (paidOrder.getPaymentStatus() == ru.sashil.model.PaymentStatus.FAILED) {
-                    status = "fail";
-                }
             }
 
-
-            model.addAttribute("clearCart", true);
-
-            return "redirect:/payment-result?orderNumber=" + response.getOrderNumber() + "&flow=creation";
+            return "redirect:/payment-result?orderNumber=" + response.getOrderNumber() + "&flow=creation&clearCart=true";
 
         } catch (Exception e) {
             log.error("Error creating order: {}", e.getMessage(), e);
-            model.addAttribute("error", "Ошибка при создании заказа: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Ошибка при создании заказа: " + e.getMessage());
             return "redirect:/checkout?error=true";
         }
     }

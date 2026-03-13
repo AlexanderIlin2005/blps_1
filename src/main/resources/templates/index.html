@@ -3,62 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Интернет-магазин</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>ElectroGlass - Будущее Электроники</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Интернет-магазин</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
-                    <li sec:authorize="!isAuthenticated()"><a href="/register">Регистрация</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/profile">Личный кабинет</a></li>
-                    <li sec:authorize="isAuthenticated()"><a href="/orders">Мои заказы</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
                     <li sec:authorize="isAuthenticated()">
-                        <form action="#" th:action="@{/logout}" method="post" style="display: inline;">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
                             <button type="submit" class="btn-link">Выйти</button>
                         </form>
                     </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <section class="hero">
-            <h2>Добро пожаловать в интернет-магазин!</h2>
-            <p>Широкий выбор электроники и аксессуаров</p>
-            <a href="/catalog" class="btn btn-primary">Перейти в каталог</a>
+        <section class="hero animate">
+            <div class="hero-glow"></div>
+            <h2>Технологии в новом свете</h2>
+            <p style="font-size: 1.25rem; color: var(--text-dim); max-width: 600px; margin: 0 auto 3rem;">
+                Добро пожаловать в ElectroGlass. Мы объединили премиальную электронику с эстетикой современного цифрового пространства.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <a href="/catalog" class="btn btn-primary">В каталог</a>
+                <a href="/register" sec:authorize="!isAuthenticated()" class="btn btn-secondary">Создать аккаунт</a>
+            </div>
         </section>
 
-        <section class="features">
-            <div class="feature-card">
-                <h3>🚚 Быстрая доставка</h3>
-                <p>Доставка курьером или в пункты самовывоза</p>
-            </div>
-            <div class="feature-card">
-                <h3>🛡️ Гарантия качества</h3>
-                <p>Официальная гарантия на все товары</p>
-            </div>
-            <div class="feature-card">
-                <h3>Большие выигрыши</h3>
-                <p>Регулярные розыгрыши среди сотрудников</p>
-            </div>
-            <div class="feature-card">
-                <h3>Надежный букмекер</h3>
-                <p>Всегда все делаем надежно, честно</p>
+        <section class="animate" style="animation-delay: 0.2s;">
+            <h3 class="section-title">Почему выбирают нас</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 1rem;">🚀</div>
+                    <h4>Мгновенная доставка</h4>
+                    <p style="color: var(--text-dim); margin-top: 0.5rem;">Ваш заказ будет у вас быстрее, чем вы успеете моргнуть. Работаем по всей стране.</p>
+                </div>
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 1rem;">💎</div>
+                    <h4>Качество Glass</h4>
+                    <p style="color: var(--text-dim); margin-top: 0.5rem;">Только оригинальная продукция с официальной гарантией и прозрачной историей.</p>
+                </div>
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 1rem;">🛡️</div>
+                    <h4>Безопасность JTA</h4>
+                    <p style="color: var(--text-dim); margin-top: 0.5rem;">Каждая транзакция защищена на уровне архитектуры WildFly. Ваши данные в сохранности.</p>
+                </div>
             </div>
         </section>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Интернет-магазин</p>
+            <div class="footer-grid">
+                <div>
+                    <a href="/" class="logo"><span>Electro</span>Glass</a>
+                    <p style="color: var(--text-dim); margin-top: 1.5rem;">Магазин нового поколения. Мы не просто продаем вещи, мы создаем опыт.</p>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 1.5rem;">Магазин</h4>
+                    <a href="/catalog" class="footer-link">Все товары</a>
+                    <a href="/login" class="footer-link">Личный кабинет</a>
+                    <a href="/register" class="footer-link">Регистрация</a>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 1.5rem;">Поддержка</h4>
+                    <a href="#" class="footer-link">Помощь</a>
+                    <a href="#" class="footer-link">Контакты</a>
+                    <a href="#" class="footer-link">Условия возврата</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Дизайн вдохновлен будущим.</p>
+            </div>
         </div>
     </footer>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

@@ -1,55 +1,74 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Вход - ElectroGlass</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>Вход в систему</h1>
+        <div class="container header-content">
+            <a href="/" class="logo"><span>Electro</span>Glass</a>
             <nav>
-                <ul>
+                                <ul>
                     <li><a href="/">Главная</a></li>
                     <li><a href="/catalog">Каталог</a></li>
-                    <li><a href="/register">Регистрация</a></li>
+                    <li><a href="/cart">Корзина <span id="cart-count-nav" class="status-pill" style="display: none;">0</span></a></li>
+                    <li sec:authorize="isAuthenticated()"><a href="/profile">Профиль</a></li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn-link">Выйти</button>
+                        </form>
+                    </li>
+                    <li sec:authorize="!isAuthenticated()"><a href="/login">Вход</a></li>
                 </ul>
+
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="auth-form">
-            <h2>Вход</h2>
-
+        <div class="card glass animate" style="max-width: 500px; margin: 2rem auto;">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Вход в систему</h2>
+            
             <div th:if="${param.error}" class="error-message">
                 Неверное имя пользователя или пароль
             </div>
-
+            <div th:if="${param.logout}" class="success-message">
+                Вы успешно вышли из системы
+            </div>
             <div th:if="${param.registered}" class="success-message">
-                Регистрация успешна! Войдите в систему.
+                Регистрация прошла успешно! Теперь вы можете войти.
             </div>
 
-            <form action="#" th:action="@{/login}" method="post">
+            <form th:action="@{/login}" method="post">
                 <div class="form-group">
-                    <label for="username">Имя пользователя</label>
-                    <input type="text" id="username" name="username" required>
+                    <label>Имя пользователя</label>
+                    <input type="text" name="username" required placeholder="Введите ваш логин">
                 </div>
-
                 <div class="form-group">
-                    <label for="password">Пароль</label>
-                    <input type="password" id="password" name="password" required>
+                    <label>Пароль</label>
+                    <input type="password" name="password" required placeholder="••••••••">
                 </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Войти</button>
-                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Войти</button>
             </form>
 
-            <p class="auth-link">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+            <div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                <p style="color: var(--text-dim); margin-bottom: 1rem;">Впервые у нас?</p>
+                <a href="/register" class="btn btn-secondary" style="width: 100%;">Зарегистрироваться</a>
+            </div>
         </div>
     </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ElectroGlass. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+<script>function updateNavCart(){const c=JSON.parse(localStorage.getItem("cart"))||[];const b=document.getElementById("cart-count-nav");if(b){const count=c.reduce((s,i)=>s+i.quantity,0);if(count>0){b.style.display="inline-block";b.textContent=count;}else{b.style.display="none";}}}document.addEventListener("DOMContentLoaded",updateNavCart);</script>
 </body>
 </html>

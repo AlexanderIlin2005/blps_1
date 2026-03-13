@@ -2,12 +2,14 @@ package ru.sashil.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.sashil.dto.PaymentTask;
 import ru.sashil.model.Order;
 import ru.sashil.model.OrderStatus;
@@ -32,6 +34,9 @@ public class PaymentWorker {
     private final OrderService orderService;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     @Value("${yoomoney.api.url}")
     private String yooMoneyUrl;
 
@@ -41,43 +46,51 @@ public class PaymentWorker {
     @Value("${yoomoney.secret.key}")
     private String secretKey;
 
+    @Value("${yoomoney.return.url}")
+    private String returnUrl;
+
     private static final String PAYMENT_QUEUE = "yoomoney_payment_queue";
 
-    @Scheduled(fixedDelay = 10000)
-    public void checkPendingPayments() {
+    @Scheduled(fixedDelay = 15000)
+    public void pollPendingPayments() {
+        log.info("Polling for pending payments in YooKassa...");
         java.util.List<Order> pendingOrders = orderRepository.findAll().stream()
             .filter(o -> o.getStatus() == OrderStatus.PAYMENT_PROCESSING && o.getPaymentId() != null)
             .collect(java.util.stream.Collectors.toList());
 
         for (Order order : pendingOrders) {
-            try {
-                log.info("Polling status for order {} (PaymentID: {})", order.getOrderNumber(), order.getPaymentId());
-                
-                HttpHeaders headers = new HttpHeaders();
-                String auth = shopId + ":" + secretKey;
-                String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-                headers.set("Authorization", "Basic " + encodedAuth);
+            checkAndUpdateOrder(order);
+        }
+    }
 
-                ResponseEntity<Map> response = restTemplate.exchange(
-                    yooMoneyUrl + "/" + order.getPaymentId(),
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    Map.class
-                );
+    private void checkAndUpdateOrder(Order order) {
+        try {
+            HttpHeaders headers = createAuthHeaders();
+            ResponseEntity<Map> response = restTemplate.exchange(
+                yooMoneyUrl + "/" + order.getPaymentId(),
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class
+            );
 
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    String status = (String) response.getBody().get("status");
-                    log.info("YooKassa status for {}: {}", order.getOrderNumber(), status);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                String status = (String) response.getBody().get("status");
+                log.info("Current YooKassa status for {}: {}", order.getOrderNumber(), status);
 
-                    if ("succeeded".equals(status)) {
-                        finalizePayment(order, order.getPaymentId(), true, "Оплата подтверждена через опрос API");
-                    } else if ("canceled".equals(status)) {
-                        finalizePayment(order, null, false, "Оплата отменена (подтверждено через опрос API)");
-                    }
+                if ("succeeded".equals(status)) {
+                    transactionTemplate.execute(statusTx -> {
+                        finalizePayment(order, order.getPaymentId(), true, "Оплата подтверждена (опрос API)");
+                        return null;
+                    });
+                } else if ("canceled".equals(status)) {
+                    transactionTemplate.execute(statusTx -> {
+                        finalizePayment(order, null, false, "Оплата отменена (опрос API)");
+                        return null;
+                    });
                 }
-            } catch (Exception e) {
-                log.error("Failed to poll status for order {}: {}", order.getOrderNumber(), e.getMessage());
             }
+        } catch (Exception e) {
+            log.error("Failed to poll status for order {}: {}", order.getOrderNumber(), e.getMessage());
         }
     }
 
@@ -86,108 +99,82 @@ public class PaymentWorker {
         while (true) {
             PaymentTask task = (PaymentTask) redisTemplate.opsForList().leftPop(PAYMENT_QUEUE);
             if (task == null) break;
-
-            log.info("Processing payment task from Redis for order: {}", task.getOrderNumber());
             processTask(task);
         }
     }
 
     private void processTask(PaymentTask task) {
         try {
-            Order order = orderRepository.findByOrderNumber(task.getOrderNumber())
-                .orElseThrow(() -> new RuntimeException("Order not found: " + task.getOrderNumber()));
-
-            HttpHeaders headers = new HttpHeaders();
+            log.info("Processing YooKassa payment for order: {}", task.getOrderNumber());
+            
+            HttpHeaders headers = createAuthHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            String auth = shopId + ":" + secretKey;
-            String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-            headers.set("Authorization", "Basic " + encodedAuth);
             headers.set("Idempotence-Key", UUID.randomUUID().toString());
 
-            Map<String, Object> amount = new HashMap<>();
-            amount.put("value", String.format("%.2f", task.getAmount()).replace(",", "."));
-            amount.put("currency", "RUB");
-
             Map<String, Object> body = new HashMap<>();
-            body.put("amount", amount);
+            body.put("amount", Map.of(
+                "value", String.format("%.2f", task.getAmount()).replace(",", "."),
+                "currency", "RUB"
+            ));
             body.put("capture", true);
             body.put("description", "Оплата заказа №" + task.getOrderNumber());
+            body.put("confirmation", Map.of(
+                "type", "redirect",
+                "return_url", returnUrl + "?orderNumber=" + task.getOrderNumber()
+            ));
+            body.put("metadata", Map.of("order_id", task.getOrderNumber()));
 
-            Map<String, String> paymentMethodData = new HashMap<>();
-            paymentMethodData.put("type", "bank_card");
-            body.put("payment_method_data", paymentMethodData);
-
-            Map<String, Object> confirmation = new HashMap<>();
-            confirmation.put("type", "redirect");
-            confirmation.put("return_url", "https://gitea.timoapp.tech/payment-result?orderNumber=" + task.getOrderNumber());
-            body.put("confirmation", confirmation);
-            
-            Map<String, String> metadata = new HashMap<>();
-            metadata.put("order_id", task.getOrderNumber());
-            body.put("metadata", metadata);
-
-            log.info("--- Sending REAL request to YooKassa API for order {} ---", task.getOrderNumber());
-            
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
             
-            try {
-                ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Map responseBody = response.getBody();
+                String paymentId = (String) responseBody.get("id");
                 
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    Map responseBody = response.getBody();
-                    String paymentId = (String) responseBody.get("id");
-                    String status = (String) responseBody.get("status");
-                    
-                    
-                    Map<String, Object> confirmationResponse = (Map<String, Object>) responseBody.get("confirmation");
-                    String confirmationUrl = null;
-                    if (confirmationResponse != null && "redirect".equals(confirmationResponse.get("type"))) {
-                        confirmationUrl = (String) confirmationResponse.get("confirmation_url");
-                    }
+                Map<String, Object> conf = (Map<String, Object>) responseBody.get("confirmation");
+                String confUrl = (conf != null) ? (String) conf.get("confirmation_url") : null;
 
-                    log.info("YooKassa Pending: Status={}, ID={}, ConfirmationUrl={}", status, paymentId, confirmationUrl);
-
+                transactionTemplate.execute(status -> {
+                    Order order = orderRepository.findByOrderNumber(task.getOrderNumber()).get();
                     order.setPaymentId(paymentId);
-                    order.setPaymentConfirmationUrl(confirmationUrl);
+                    order.setPaymentConfirmationUrl(confUrl);
                     orderRepository.save(order);
                     
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAYMENT_PROCESSING, 
-                        "Платеж создан. Ожидание перехода пользователя на страницу оплаты.");
-                } else {
-                    log.error("YooKassa Error: HTTP {}", response.getStatusCode());
-                    finalizePayment(order, null, false, "YooKassa error: " + response.getStatusCode());
-                }
-            } catch (Exception e) {
-                log.error("YooKassa API Call Failed: {}", e.getMessage());
-                finalizePayment(order, null, false, "Connection/Auth error: " + e.getMessage());
+                        "Платеж создан. Ожидание оплаты пользователем.");
+                    return null;
+                });
             }
-
         } catch (Exception e) {
-            log.error("Worker error for order {}: {}", task.getOrderNumber(), e.getMessage());
+            log.error("Payment task failed for order {}: {}", task.getOrderNumber(), e.getMessage());
         }
     }
 
-    private void finalizePayment(Order order, String paymentId, boolean success, String message) {
-        if (success) {
-            order.setPaymentId(paymentId);
-            order.setPaymentStatus(PaymentStatus.COMPLETED);
-            order.setStatus(OrderStatus.PAID);
-            order.setPaidAt(LocalDateTime.now());
-            orderRepository.save(order);
+    private HttpHeaders createAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String auth = shopId + ":" + secretKey;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
+        headers.set("Authorization", "Basic " + encodedAuth);
+        return headers;
+    }
 
-            orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAID, message);
-            notificationService.sendOrderConfirmation(order);
-            
-            log.info("Order {} finalized as PAID", order.getOrderNumber());
-            inventoryService.processFulfillment(order);
+    private void finalizePayment(Order order, String paymentId, boolean success, String message) {
+        Order freshOrder = orderRepository.findById(order.getId()).get();
+        if (success) {
+            freshOrder.setPaymentId(paymentId);
+            freshOrder.setPaymentStatus(PaymentStatus.COMPLETED);
+            freshOrder.setStatus(OrderStatus.PAID);
+            freshOrder.setPaidAt(LocalDateTime.now());
+            orderRepository.save(freshOrder);
+            orderService.updateOrderStatus(freshOrder.getOrderNumber(), OrderStatus.PAID, message);
+            notificationService.sendOrderConfirmation(freshOrder);
+            inventoryService.processFulfillment(freshOrder);
         } else {
-            order.setPaymentStatus(PaymentStatus.FAILED);
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
-            orderRepository.save(order);
-            
-            orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED, message);
-            log.warn("Order {} finalized as FAILED", order.getOrderNumber());
+            freshOrder.setPaymentStatus(PaymentStatus.FAILED);
+            freshOrder.setStatus(OrderStatus.CANCELLED);
+            freshOrder.setCancelledAt(LocalDateTime.now());
+            orderRepository.save(freshOrder);
+            orderService.updateOrderStatus(freshOrder.getOrderNumber(), OrderStatus.CANCELLED, message);
         }
     }
 }
