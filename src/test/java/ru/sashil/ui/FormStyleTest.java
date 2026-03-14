@@ -41,7 +41,7 @@ public class FormStyleTest {
         System.out.println("\n--- CHECKING CATALOG PAGE STYLES ---");
         driver.get(baseUrl + "/catalog");
         try {
-            Thread.sleep(2000); // Wait for fetch
+            Thread.sleep(2000);
             WebElement categorySelect = driver.findElement(By.id("categoryFilter"));
             printStyles(categorySelect, "Catalog Select");
             
@@ -64,7 +64,7 @@ public class FormStyleTest {
         System.out.println("  - Border Radius: " + radius);
         System.out.println("  - Text Color: " + color);
         
-        // Logical check for "Glass" style
+
         boolean isGlass = bg.contains("rgba") || bg.equals("transparent");
         System.out.println("  - Visual Check (Glass): " + (isGlass ? "PASS" : "FAIL (Stock?)"));
     }

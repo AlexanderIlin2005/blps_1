@@ -26,7 +26,7 @@ class CatalogUITest {
     @BeforeEach
     void setUp() {
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless"); // Для запуска в CI
+        options.addArguments("--headless");
         driver = new ChromeDriver(options);
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
     }
@@ -42,15 +42,15 @@ class CatalogUITest {
     void testCatalogPageContent() {
         driver.get(baseUrl + "/catalog");
 
-        // Проверяем заголовок страницы
+
         String title = driver.getTitle();
         assertThat(title).contains("Каталог");
 
-        // Проверяем наличие товаров
+
         List<WebElement> products = driver.findElements(By.className("product-card"));
         assertThat(products).isNotEmpty();
 
-        // Проверяем кнопку добавления в корзину первого товара
+
         WebElement firstAddToCartBtn = products.get(0).findElement(By.className("btn-primary"));
         assertThat(firstAddToCartBtn.getText()).isEqualTo("В корзину");
     }

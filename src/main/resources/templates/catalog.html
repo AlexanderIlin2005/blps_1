@@ -91,12 +91,12 @@
                 return;
             }
             grid.innerHTML = products.map(p => {
-                // Support multi-byte emojis and complex names
+
                 const chars = Array.from(p.name);
                 const emoji = chars[0];
                 const rest = chars.slice(1).join('').trim();
                 
-                // If the first char is not actually an emoji (e.g. legacy name), fallback
+
                 const hasEmoji = /\p{Emoji}/u.test(emoji);
                 const finalEmoji = hasEmoji ? emoji : '📦';
                 const finalName = hasEmoji ? rest : p.name;

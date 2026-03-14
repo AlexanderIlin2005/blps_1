@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // Проверка на ошибку остатков
+
     const urlParams = new URLSearchParams(window.location.search);
     const errorMsg = document.getElementById('error-splash');
     
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     itemsList.innerHTML = cart.map((item, index) => {
         total += item.price * item.quantity;
         
-        // Add hidden inputs for form submission
+
         dataContainer.innerHTML += `
             <input type="hidden" name="productId[]" value="${item.sku}">
             <input type="hidden" name="productName[]" value="${item.name}">
@@ -43,13 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
     totalEl.textContent = total.toLocaleString() + ' ₽';
 
     function handleStockError(message) {
-        // Парсим название товара из ошибки "Not enough stock for product: 📱 iPhone 15 Pro"
+
         const productName = message.split(':').pop().trim();
         
-        // Показываем уведомление
+
         showSplash(`Упс, ${productName} заканчивается. Мы изменили количество товара в корзине на доступное.`);
         
-        // Запрашиваем актуальные остатки и правим корзину
+
         fetch('/api/products')
             .then(res => res.json())
             .then(products => {
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }).filter(item => item.quantity > 0);
                     
                     localStorage.setItem('cart', JSON.stringify(updatedCart));
-                    // Перерисовывать не нужно, так как уведомление висит, пользователь увидит изменения после авто-рефреша или ручного
+
                     setTimeout(() => window.location.href = '/checkout', 4000);
                 }
             });

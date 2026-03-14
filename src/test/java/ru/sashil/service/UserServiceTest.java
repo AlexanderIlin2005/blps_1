@@ -40,7 +40,7 @@ class UserServiceTest {
 
     @Test
     void register_success() throws Exception {
-        // Arrange
+
         UserRegistrationDTO dto = new UserRegistrationDTO();
         dto.setUsername("testuser");
         dto.setEmail("test@example.com");
@@ -60,10 +60,10 @@ class UserServiceTest {
         user.setUsername("testuser");
         when(userRepository.save(any(User.class))).thenReturn(user);
 
-        // Act
+
         UserDTO result = userService.register(dto);
 
-        // Assert
+
         assertNotNull(result);
         assertEquals("testuser", result.getUsername());
         verify(userTransaction).begin();
@@ -72,13 +72,13 @@ class UserServiceTest {
 
     @Test
     void register_passwordsDoNotMatch_shouldThrowException() throws Exception {
-        // Arrange
+
         UserRegistrationDTO dto = new UserRegistrationDTO();
         dto.setUsername("testuser");
         dto.setPassword("password");
         dto.setConfirmPassword("wrong");
 
-        // Act & Assert
+
         assertThrows(RuntimeException.class, () -> userService.register(dto));
         verify(userTransaction).begin();
         verify(userTransaction).rollback();

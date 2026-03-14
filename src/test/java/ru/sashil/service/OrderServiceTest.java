@@ -46,7 +46,7 @@ class OrderServiceTest {
 
     @Test
     void createOrder_shouldSucceedWhenStockAvailable() throws Exception {
-        // Arrange
+
         CreateOrderRequest request = new CreateOrderRequest();
         request.setCustomerId(1L);
         request.setCustomerName("Ivan Ivanov");
@@ -68,10 +68,10 @@ class OrderServiceTest {
         savedOrder.setItems(Collections.emptyList());
         when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
 
-        // Act
+
         OrderResponse response = orderService.createOrder(request);
 
-        // Assert (using Google Truth)
+
         assertThat(response.getOrderNumber()).isEqualTo("ORD-123");
         verify(userTransaction).begin();
         verify(userTransaction).commit();
@@ -80,7 +80,7 @@ class OrderServiceTest {
 
     @Test
     void createOrder_shouldFailWhenStockInsufficient() throws Exception {
-        // Arrange
+
         CreateOrderRequest request = new CreateOrderRequest();
         request.setCustomerId(1L);
         request.setItems(Collections.singletonList(new CartItemDTO("IPHONE-14", "iPhone 14", 100, 99000.0)));
@@ -93,7 +93,7 @@ class OrderServiceTest {
         product.setStockQuantity(10);
         when(productRepository.findBySku("IPHONE-14")).thenReturn(Optional.of(product));
 
-        // Act & Assert
+
         try {
             orderService.createOrder(request);
         } catch (RuntimeException e) {

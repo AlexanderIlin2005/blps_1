@@ -63,7 +63,7 @@ public class OrderService {
                     throw new RuntimeException("Not enough stock for product: " + product.getName());
                 }
                 
-                // Reduce stock
+
                 product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
                 productRepository.save(product);
 
@@ -132,7 +132,7 @@ public class OrderService {
             return o;
         });
 
-        // External API call OUTSIDE of the transaction
+
         PaymentResponse paymentResponse = paymentService.processPayment(
             orderNumber,
             paymentMethod,

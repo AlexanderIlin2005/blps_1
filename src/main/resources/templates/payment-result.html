@@ -97,14 +97,14 @@
                     const manualPay = document.getElementById('manual-pay-container');
                     const manualBtn = document.getElementById('manual-pay-btn');
 
-                    // 1. Логика оплаты и редиректа
+
                     if (order.status === 'PAYMENT_PROCESSING' || order.status === 'CHECKOUT') {
                         if (order.paymentConfirmationUrl) {
                             manualPay.style.display = 'block';
                             manualBtn.href = order.paymentConfirmationUrl;
                             text.textContent = 'Ожидаем оплату заказа. Если страница не открылась автоматически, нажмите на кнопку ниже.';
                             
-                            // Авто-редирект только один раз при создании заказа
+
                             if (flow === 'creation' && !hasAutoRedirected) {
                                 hasAutoRedirected = true;
                                 setTimeout(() => {
@@ -116,7 +116,7 @@
                         }
                     }
 
-                    // 2. Логика успеха/провала
+
                     if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED' || order.status === 'COMPLETED') {
                         icon.textContent = '✅';
                         title.textContent = 'Оплата принята!';
@@ -129,7 +129,7 @@
                             localStorage.removeItem('cart');
                             localStorage.removeItem('cartTotal');
                         }
-                        return; // Останавливаем опрос
+                        return;
                     } 
                     
                     if (order.status === 'CANCELLED') {
@@ -142,7 +142,7 @@
                         return;
                     }
 
-                    // Продолжаем опрос, если статус еще не финальный
+
                     attempts++;
                     if (attempts < 100) {
                         setTimeout(checkStatus, 3000);

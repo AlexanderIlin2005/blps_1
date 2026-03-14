@@ -61,7 +61,7 @@ public class DataInitializerService {
         List<Privilege> adminPrivileges = Arrays.asList(readCatalog, createOrder, readOwnOrders, cancelOwnOrder, readAllOrders, updateOrderStatus, manageProducts);
         createRoleIfNotFound("ROLE_ADMIN", adminPrivileges);
 
-        // Fix existing users without roles
+
         userRepository.findAll().stream()
             .filter(u -> u.getRoles() == null || u.getRoles().isEmpty())
             .forEach(u -> {
@@ -86,7 +86,7 @@ public class DataInitializerService {
     }
 
     private void initProducts() {
-        // Updated to always ensure core products have emojis and info
+
         List<Product> products = Arrays.asList(
             createProduct("IPHONE-14-PRO", "iPhone 14 Pro", "Смартфон Apple iPhone 14 Pro 256GB", 99999.99, "Смартфоны", "📱"),
             createProduct("APPLE-WATCH-8", "Apple Watch Series 8", "Умные часы Apple Watch Series 8", 39999.99, "Часы", "⌚"),
