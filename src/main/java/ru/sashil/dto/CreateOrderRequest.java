@@ -21,4 +21,5 @@ public class CreateOrderRequest {
     private String pickupPointId;
     private String pickupPointAddress;
     private String promoCode;
+    private String idempotencyKey;
 }

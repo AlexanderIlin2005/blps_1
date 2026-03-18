@@ -33,6 +33,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
+    private final IdempotencyService idempotencyService;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -49,6 +50,8 @@ public class OrderService {
         log.info("Creating new order for customer: {}", request.getCustomerName());
 
         return transactionTemplate.execute(status -> {
+            idempotencyService.checkAndRegister(request.getIdempotencyKey());
+
             User user = userRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 

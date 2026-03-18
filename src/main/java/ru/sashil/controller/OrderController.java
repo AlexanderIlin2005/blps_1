@@ -70,6 +70,7 @@ public class OrderController {
             @RequestParam(value = "productName[]", required = false) List<String> productNames,
             @RequestParam(value = "quantity[]", required = false) List<Integer> quantities,
             @RequestParam(value = "price[]", required = false) List<Double> prices,
+            @RequestParam(value = "idempotencyKey", required = false) String idempotencyKey,
             RedirectAttributes redirectAttributes) {
 
         try {
@@ -101,6 +102,7 @@ public class OrderController {
             request.setCustomerEmail(customerEmail);
             request.setCustomerPhone(customerPhone);
             request.setItems(items);
+            request.setIdempotencyKey(idempotencyKey);
             request.setDeliveryType(deliveryType.equals("COURIER") ?
                 ru.sashil.model.DeliveryType.COURIER : ru.sashil.model.DeliveryType.PICKUP);
 
@@ -192,6 +194,7 @@ public class OrderController {
                 @RequestParam("items[0].productName") String productName,
                 @RequestParam("items[0].quantity") Integer quantity,
                 @RequestParam("items[0].price") Double price,
+                @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
                 Authentication auth) {
 
             User user = userService.findByUsername(auth.getName());
@@ -201,6 +204,7 @@ public class OrderController {
             request.setCustomerName(customerName);
             request.setCustomerEmail(customerEmail);
             request.setCustomerPhone(customerPhone);
+            request.setIdempotencyKey(idempotencyKey);
             request.setDeliveryType("COURIER".equals(deliveryType) ?
                 ru.sashil.model.DeliveryType.COURIER : ru.sashil.model.DeliveryType.PICKUP);
             request.setDeliveryAddress(deliveryAddress);
