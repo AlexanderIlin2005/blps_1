@@ -23,7 +23,13 @@ public class IdempotencyService {
         }
 
         String fullKey = PREFIX + key;
-        Boolean isAbsent = redisTemplate.opsForValue().setIfAbsent(fullKey, "PROCESSING", Duration.ofMinutes(10));
+        Boolean isAbsent;
+        try {
+            isAbsent = redisTemplate.opsForValue().setIfAbsent(fullKey, "PROCESSING", Duration.ofMinutes(10));
+        } catch (Exception e) {
+            log.error("Redis is unavailable during idempotency check: {}", e.getMessage());
+            throw new RuntimeException("Система проверки дубликатов временно недоступна. Пожалуйста, попробуйте позже.");
+        }
 
         if (Boolean.TRUE.equals(isAbsent)) {
             if (TransactionSynchronizationManager.isSynchronizationActive()) {

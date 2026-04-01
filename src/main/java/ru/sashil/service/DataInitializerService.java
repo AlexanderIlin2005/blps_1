@@ -69,6 +69,17 @@ public class DataInitializerService {
                 u.setRoles(new ArrayList<>(Collections.singletonList(customerRole)));
                 userRepository.save(u);
             });
+
+        if (userRepository.findByUsername("debug_user").isEmpty()) {
+            ru.sashil.model.User debugUser = new ru.sashil.model.User();
+            debugUser.setUsername("debug_user");
+            debugUser.setPassword("{noop}debug_pass");
+            debugUser.setEmail("debug@test.com");
+            debugUser.setFullName("Debug User");
+            debugUser.setRoles(new ArrayList<>(Collections.singletonList(customerRole)));
+            userRepository.save(debugUser);
+            log.info("CREATED DEBUG USER: debug_user / debug_pass");
+        }
     }
 
     private Privilege createPrivilegeIfNotFound(String name) {
