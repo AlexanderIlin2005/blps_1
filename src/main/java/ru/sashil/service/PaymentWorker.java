@@ -29,7 +29,6 @@ public class PaymentWorker {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final OrderRepository orderRepository;
-    private final InventoryService inventoryService;
     private final NotificationService notificationService;
     private final OrderService orderService;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -79,12 +78,12 @@ public class PaymentWorker {
 
                 if ("succeeded".equals(status)) {
                     transactionTemplate.execute(statusTx -> {
-                        finalizePayment(order, order.getPaymentId(), true, "Оплата подтверждена (опрос API)");
+                        orderService.finalizePayment(order, order.getPaymentId(), true, "Оплата подтверждена (опрос API)");
                         return null;
                     });
                 } else if ("canceled".equals(status)) {
                     transactionTemplate.execute(statusTx -> {
-                        finalizePayment(order, null, false, "Оплата отменена (опрос API)");
+                        orderService.finalizePayment(order, null, false, "Оплата отменена (опрос API)");
                         return null;
                     });
                 }
@@ -106,7 +105,7 @@ public class PaymentWorker {
     private void processTask(PaymentTask task) {
         try {
             log.info("Processing YooKassa payment for order: {}", task.getOrderNumber());
-            
+
             HttpHeaders headers = createAuthHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Idempotence-Key", UUID.randomUUID().toString());
@@ -126,11 +125,11 @@ public class PaymentWorker {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
-            
+
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map responseBody = response.getBody();
                 String paymentId = (String) responseBody.get("id");
-                
+
                 Map<String, Object> conf = (Map<String, Object>) responseBody.get("confirmation");
                 String confUrl = (conf != null) ? (String) conf.get("confirmation_url") : null;
 
@@ -139,8 +138,8 @@ public class PaymentWorker {
                     order.setPaymentId(paymentId);
                     order.setPaymentConfirmationUrl(confUrl);
                     orderRepository.save(order);
-                    
-                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAYMENT_PROCESSING, 
+
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAYMENT_PROCESSING,
                         "Платеж создан. Ожидание оплаты пользователем.");
                     return null;
                 });
@@ -156,25 +155,5 @@ public class PaymentWorker {
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
         headers.set("Authorization", "Basic " + encodedAuth);
         return headers;
-    }
-
-    private void finalizePayment(Order order, String paymentId, boolean success, String message) {
-        Order freshOrder = orderRepository.findById(order.getId()).get();
-        if (success) {
-            freshOrder.setPaymentId(paymentId);
-            freshOrder.setPaymentStatus(PaymentStatus.COMPLETED);
-            freshOrder.setStatus(OrderStatus.PAID);
-            freshOrder.setPaidAt(LocalDateTime.now());
-            orderRepository.save(freshOrder);
-            orderService.updateOrderStatus(freshOrder.getOrderNumber(), OrderStatus.PAID, message);
-            notificationService.sendOrderConfirmation(freshOrder);
-            inventoryService.processFulfillment(freshOrder);
-        } else {
-            freshOrder.setPaymentStatus(PaymentStatus.FAILED);
-            freshOrder.setStatus(OrderStatus.CANCELLED);
-            freshOrder.setCancelledAt(LocalDateTime.now());
-            orderRepository.save(freshOrder);
-            orderService.updateOrderStatus(freshOrder.getOrderNumber(), OrderStatus.CANCELLED, message);
-        }
     }
 }

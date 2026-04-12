@@ -25,7 +25,6 @@ public class WebhookController {
 
     private final OrderRepository orderRepository;
     private final OrderService orderService;
-    private final InventoryService inventoryService;
     private final NotificationService notificationService;
 
     @Autowired
@@ -60,9 +59,38 @@ public class WebhookController {
                 }
 
                 if ("payment.succeeded".equals(event) || "succeeded".equals(status)) {
-                    processSucceededPayment(order, paymentId);
+                    order.setPaymentId(paymentId);
+                    order.setPaymentStatus(PaymentStatus.COMPLETED);
+                    order.setStatus(OrderStatus.PAID);
+                    order.setPaidAt(LocalDateTime.now());
+                    orderRepository.save(order);
+
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAID, "Оплата подтверждена через Webhook ЮKassa");
+                    notificationService.sendOrderConfirmation(order);
+
+                    // Запуск фулфилмента через распределённую очередь
+                    log.info("Triggering fulfillment via queue from webhook for order: {}", order.getOrderNumber());
+                    // InventoryService будет вызван через OrderService.finalizePayment, но здесь у нас уже есть order
+                    // Нужно получить InventoryService из контекста
+                    try {
+                        ru.sashil.service.InventoryService inventoryService =
+                            org.springframework.web.context.support.WebApplicationContextUtils
+                            .getRequiredWebApplicationContext(
+                                ((org.springframework.web.context.request.ServletRequestAttributes)
+                                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes())
+                                .getRequest().getServletContext()
+                            ).getBean(ru.sashil.service.InventoryService.class);
+                        inventoryService.processFulfillment(order);
+                    } catch (Exception e) {
+                        log.error("Failed to trigger fulfillment from webhook", e);
+                    }
                 } else if ("payment.canceled".equals(event) || "canceled".equals(status)) {
-                    processCanceledPayment(order);
+                    order.setPaymentStatus(PaymentStatus.FAILED);
+                    order.setStatus(OrderStatus.CANCELLED);
+                    order.setCancelledAt(LocalDateTime.now());
+                    orderRepository.save(order);
+
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED, "Оплата отменена или отклонена (Webhook)");
                 }
                 return null;
             });
@@ -72,26 +100,5 @@ public class WebhookController {
         }
 
         return ResponseEntity.ok().build();
-    }
-
-    private void processSucceededPayment(Order order, String paymentId) {
-        order.setPaymentId(paymentId);
-        order.setPaymentStatus(PaymentStatus.COMPLETED);
-        order.setStatus(OrderStatus.PAID);
-        order.setPaidAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PAID, "Оплата подтверждена через Webhook ЮKassa");
-        notificationService.sendOrderConfirmation(order);
-        inventoryService.processFulfillment(order);
-    }
-
-    private void processCanceledPayment(Order order) {
-        order.setPaymentStatus(PaymentStatus.FAILED);
-        order.setStatus(OrderStatus.CANCELLED);
-        order.setCancelledAt(LocalDateTime.now());
-        orderRepository.save(order);
-        
-        orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED, "Оплата отменена или отклонена (Webhook)");
     }
 }

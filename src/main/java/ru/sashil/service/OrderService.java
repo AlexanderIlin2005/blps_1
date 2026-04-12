@@ -34,6 +34,7 @@ public class OrderService {
     private final OrderStatusHistoryRepository historyRepository;
     private final NotificationService notificationService;
     private final IdempotencyService idempotencyService;
+    private final InventoryService inventoryService;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -65,25 +66,24 @@ public class OrderService {
                 if (product.getStockQuantity() < item.getQuantity()) {
                     throw new RuntimeException("Not enough stock for product: " + product.getName());
                 }
-                
 
                 product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
                 productRepository.save(product);
 
                 OrderItem orderItem = new OrderItem();
                 orderItem.setProductId(item.getProductId());
-                orderItem.setProductName(product.getName()); 
+                orderItem.setProductName(product.getName());
                 orderItem.setQuantity(item.getQuantity());
-                orderItem.setPrice(product.getPrice()); 
+                orderItem.setPrice(product.getPrice());
                 orderItem.setTotal(product.getPrice() * item.getQuantity());
-                
+
                 orderItems.add(orderItem);
                 subtotal += orderItem.getTotal();
             }
 
             Order order = new Order();
             order.setOrderNumber(generateOrderNumber());
-            order.setUser(user); 
+            order.setUser(user);
             order.setCustomerId(request.getCustomerId());
             order.setCustomerName(request.getCustomerName());
             order.setCustomerEmail(request.getCustomerEmail());
@@ -92,7 +92,7 @@ public class OrderService {
             order.setCreatedAt(LocalDateTime.now());
             order.setUpdatedAt(LocalDateTime.now());
             order.setDeliveryType(request.getDeliveryType());
-            
+
             if (request.getDeliveryType() == DeliveryType.COURIER) {
                 order.setDeliveryAddress(request.getDeliveryAddress());
             } else {
@@ -104,7 +104,7 @@ public class OrderService {
             for(OrderItem item : orderItems) {
                 item.setOrder(order);
             }
-            
+
             order.setSubtotal(subtotal);
             order.setDiscount(0.0);
             order.setTotal(subtotal);
@@ -135,7 +135,6 @@ public class OrderService {
             return o;
         });
 
-
         PaymentResponse paymentResponse = paymentService.processPayment(
             orderNumber,
             paymentMethod,
@@ -147,33 +146,46 @@ public class OrderService {
             Order o = orderRepository.findByOrderNumber(orderNumber).get();
 
             if ("SUCCESS".equals(paymentResponse.getStatus())) {
-                o.setPaymentId(paymentResponse.getPaymentId());
-                o.setPaymentStatus(PaymentStatus.COMPLETED);
-                o.setStatus(OrderStatus.PAID);
-                o.setPaidAt(LocalDateTime.now());
-                orderRepository.save(o);
-
-                addStatusHistory(o, OrderStatus.PAID,
-                    "Оплата успешна, ID платежа: " + paymentResponse.getPaymentId());
-
-                notificationService.sendOrderConfirmation(o);
-                log.info("Order {} paid successfully", orderNumber);
-
+                finalizePayment(o, paymentResponse.getPaymentId(), true, "Оплата успешна");
             } else if ("PENDING".equals(paymentResponse.getStatus())) {
                 o.setPaymentId(paymentResponse.getPaymentId());
                 orderRepository.save(o);
                 addStatusHistory(o, OrderStatus.PAYMENT_PROCESSING,
                     "Запрос на оплату отправлен в очередь (ЮKassa). Ожидайте подтверждения.");
             } else if ("FAILED".equals(paymentResponse.getStatus())) {
+                finalizePayment(o, null, false, "Оплата не удалась: " + paymentResponse.getMessage());
+            }
+            return mapToResponse(o);
+        });
+    }
+
+    /**
+     * Финализация платежа с запуском фулфилмента через очередь сообщений.
+     */
+    public void finalizePayment(Order order, String paymentId, boolean success, String message) {
+        transactionTemplate.execute(status -> {
+            Order o = orderRepository.findById(order.getId()).get();
+
+            if (success) {
+                o.setPaymentId(paymentId);
+                o.setPaymentStatus(PaymentStatus.COMPLETED);
+                o.setStatus(OrderStatus.PAID);
+                o.setPaidAt(LocalDateTime.now());
+                orderRepository.save(o);
+                addStatusHistory(o, OrderStatus.PAID, message);
+                notificationService.sendOrderConfirmation(o);
+
+                // Запуск фулфилмента через распределённую очередь
+                log.info("Triggering fulfillment via queue for order: {}", o.getOrderNumber());
+                inventoryService.processFulfillment(o);
+            } else {
                 o.setPaymentStatus(PaymentStatus.FAILED);
                 o.setStatus(OrderStatus.CANCELLED);
                 o.setCancelledAt(LocalDateTime.now());
                 orderRepository.save(o);
-
-                addStatusHistory(o, OrderStatus.CANCELLED,
-                    "Оплата не удалась: " + paymentResponse.getMessage());
+                addStatusHistory(o, OrderStatus.CANCELLED, message);
             }
-            return mapToResponse(o);
+            return null;
         });
     }
 
@@ -271,15 +283,15 @@ public class OrderService {
         return transactionTemplate.execute(status -> {
             Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
-            
+
             Long orderUserId = (order.getUser() != null) ? order.getUser().getId() : null;
-            log.info("Checking access for order {}: orderUserId={}, currentUserId={}", 
+            log.info("Checking access for order {}: orderUserId={}, currentUserId={}",
                 orderNumber, orderUserId, userId);
 
             if (orderUserId != null && !orderUserId.equals(userId)) {
                 throw new RuntimeException("Access denied: This order belongs to another user (ID: " + orderUserId + ", yours: " + userId + ")");
             }
-            
+
             return mapToResponse(order);
         });
     }
