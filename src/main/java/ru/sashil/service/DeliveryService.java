@@ -42,27 +42,27 @@ public class DeliveryService {
             // Simple JSON parsing (orderNumber extraction)
             String orderNumber = payload.split("\"orderNumber\":\"")[1].split("\"")[0];
 
-            transactionTemplate.execute(status -> {
+            Order completedOrder = transactionTemplate.execute(status -> {
                 try {
-                    processDelivery(orderNumber);
-                    
-                    // JCA Integration with Accounting
+                    Order order = processDelivery(orderNumber);
                     sendToAccounting(payload);
-                    
+                    return order;
                 } catch (Exception e) {
                     log.error("Failed to process delivery for order: {}", orderNumber, e);
                     status.setRollbackOnly();
                     throw new RuntimeException(e);
                 }
-                return null;
             });
+            if (completedOrder != null) {
+                notificationService.sendDeliveryNotification(completedOrder);
+            }
 
         } catch (JMSException e) {
             log.error("JMS error in delivery listener", e);
         }
     }
 
-    private void processDelivery(String orderNumber) throws Exception {
+    private Order processDelivery(String orderNumber) throws Exception {
         Order order = orderRepository.findByOrderNumber(orderNumber)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
@@ -74,13 +74,13 @@ public class DeliveryService {
         // Стадия 1: Передача в доставку
         orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
             "Заказ передан в службу доставки, трек-номер: " + trackingNumber);
-        Thread.sleep(20000); // 20 секунд
+        waitForStageTransition();
 
         if (order.getDeliveryType() == DeliveryType.COURIER) {
             // Стадия 2: Курьер выехал
             orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.OUT_FOR_DELIVERY,
                 "Курьер выехал по адресу: " + order.getDeliveryAddress());
-            Thread.sleep(20000); // 20 секунд
+            waitForStageTransition();
             
             // Стадия 3: Доставлен
             orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.DELIVERED,
@@ -88,15 +88,19 @@ public class DeliveryService {
         } else {
             orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PICKUP_READY,
                 "Заказ готов к выдаче в ПВЗ: " + order.getPickupPointAddress());
-            Thread.sleep(20000); // 20 секунд
+            waitForStageTransition();
             orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PICKED_UP,
                 "Заказ получен в пункте самовывоза");
         }
 
-        Thread.sleep(20000); // 20 секунд до завершения
+        waitForStageTransition();
         orderService.completeDelivery(order.getOrderNumber());
-        notificationService.sendDeliveryNotification(order);
         log.info("Order {} delivery completed", order.getOrderNumber());
+        return order;
+    }
+
+    void waitForStageTransition() throws InterruptedException {
+        Thread.sleep(20000);
     }
 
     private void sendToAccounting(String payload) throws Exception {
@@ -113,8 +117,12 @@ public class DeliveryService {
             
             StringRecord output = new StringRecord();
             interaction.execute(null, input, output);
-            
-            log.info("Accounting system response: {}", output.getPayload());
+
+            String response = output.getPayload();
+            log.info("Accounting system response: {}", response);
+            if (response == null || response.startsWith("ERROR")) {
+                throw new RuntimeException("Accounting system rejected payload: " + response);
+            }
         } finally {
             if (interaction != null) {
                 try { interaction.close(); } catch (Exception e) { log.warn("Failed to close JCA interaction", e); }

@@ -6,7 +6,8 @@ import jakarta.resource.cci.Interaction;
 import jakarta.resource.cci.InteractionSpec;
 import jakarta.resource.cci.Record;
 import jakarta.resource.cci.ResourceWarning;
-import java.io.IOException;
+import ru.sashil.config.ApplicationContextProvider;
+import ru.sashil.service.AccountingExternalSystem;
 
 public class AccountingInteractionImpl implements Interaction {
     private final AccountingConnectionImpl connection;
@@ -24,11 +25,8 @@ public class AccountingInteractionImpl implements Interaction {
         String payload = strInput.getPayload();
 
         try {
-            ru.sashil.service.AccountingExternalSystem accountingService =
-                org.springframework.web.context.support.WebApplicationContextUtils
-                .getRequiredWebApplicationContext(
-                    org.springframework.web.context.ContextLoader.getCurrentWebApplicationContext().getServletContext()
-                ).getBean(ru.sashil.service.AccountingExternalSystem.class);
+            AccountingExternalSystem accountingService =
+                ApplicationContextProvider.getApplicationContext().getBean(AccountingExternalSystem.class);
             
             String response = accountingService.processPayload(payload);
             

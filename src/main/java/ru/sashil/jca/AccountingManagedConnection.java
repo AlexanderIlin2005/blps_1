@@ -3,9 +3,7 @@ package ru.sashil.jca;
 import jakarta.resource.NotSupportedException;
 import jakarta.resource.ResourceException;
 import jakarta.resource.spi.*;
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import javax.security.auth.Subject;
@@ -16,16 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 public class AccountingManagedConnection implements ManagedConnection, jakarta.resource.spi.LocalTransaction {
     private final AccountingManagedConnectionFactory mcf;
     private final List<ConnectionEventListener> listeners = new ArrayList<>();
-    private Socket socket;
     private PrintWriter logWriter;
 
     public AccountingManagedConnection(AccountingManagedConnectionFactory mcf) throws ResourceException {
         this.mcf = mcf;
-        try {
-            this.socket = new Socket(mcf.getHost(), mcf.getPort());
-        } catch (IOException e) {
-            throw new ResourceException("Could not connect to accounting system at " + mcf.getHost() + ":" + mcf.getPort(), e);
-        }
     }
 
     @Override
@@ -35,13 +27,6 @@ public class AccountingManagedConnection implements ManagedConnection, jakarta.r
 
     @Override
     public void destroy() throws ResourceException {
-        try {
-            if (socket != null) {
-                socket.close();
-            }
-        } catch (IOException e) {
-            throw new ResourceException(e);
-        }
     }
 
     @Override
@@ -118,16 +103,11 @@ public class AccountingManagedConnection implements ManagedConnection, jakarta.r
         }
     }
 
-    public void send(String payload) throws IOException {
-        socket.getOutputStream().write((payload + "\n").getBytes());
-        socket.getOutputStream().flush();
+    public void send(String payload) {
     }
 
-    public String receive() throws IOException {
-        byte[] buffer = new byte[1024];
-        int read = socket.getInputStream().read(buffer);
-        if (read == -1) return null;
-        return new String(buffer, 0, read).trim();
+    public String receive() {
+        return null;
     }
 
     public AccountingManagedConnectionFactory getMcf() {

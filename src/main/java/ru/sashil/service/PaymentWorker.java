@@ -1,22 +1,21 @@
 package ru.sashil.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.*;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestTemplate;
 import ru.sashil.dto.PaymentTask;
 import ru.sashil.model.Order;
 import ru.sashil.model.OrderStatus;
-import ru.sashil.model.PaymentStatus;
 import ru.sashil.repository.OrderRepository;
 
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +30,7 @@ public class PaymentWorker {
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
     private final OrderService orderService;
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Autowired
@@ -96,41 +96,54 @@ public class PaymentWorker {
     @Scheduled(fixedDelay = 5000)
     public void processPaymentQueue() {
         while (true) {
-            PaymentTask task = (PaymentTask) redisTemplate.opsForList().leftPop(PAYMENT_QUEUE);
-            if (task == null) break;
+            Object queueItem = redisTemplate.opsForList().leftPop(PAYMENT_QUEUE);
+            if (queueItem == null) break;
+            PaymentTask task = convertQueueItem(queueItem);
+            if (task == null) {
+                continue;
+            }
             processTask(task);
         }
     }
-private void processTask(PaymentTask task) {
-    log.info("Starting processTask for order: {}", task.getOrderNumber());
-    try {
-        HttpHeaders headers = createAuthHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Idempotence-Key", UUID.randomUUID().toString());
+    PaymentTask convertQueueItem(Object queueItem) {
+        if (queueItem instanceof PaymentTask task) {
+            return task;
+        }
+        if (queueItem instanceof Map<?, ?> rawTask) {
+            return objectMapper.convertValue(rawTask, PaymentTask.class);
+        }
+        log.error("Unsupported payment queue item type: {}", queueItem.getClass().getName());
+        return null;
+    }
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("amount", Map.of(
-            "value", String.format("%.2f", task.getAmount()).replace(",", "."),
-            "currency", "RUB"
-        ));
-        body.put("capture", true);
-        body.put("description", "Оплата заказа №" + task.getOrderNumber());
-        body.put("confirmation", Map.of(
-            "type", "redirect",
-            "return_url", returnUrl + "?orderNumber=" + task.getOrderNumber()
-        ));
-        body.put("metadata", Map.of("order_id", task.getOrderNumber()));
+    private void processTask(PaymentTask task) {
+        log.info("Starting processTask for order: {}", task.getOrderNumber());
+        try {
+            HttpHeaders headers = createAuthHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Idempotence-Key", UUID.randomUUID().toString());
 
-        log.info("Sending request to YooKassa: {}", body);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
+            Map<String, Object> body = new HashMap<>();
+            body.put("amount", Map.of(
+                "value", String.format("%.2f", task.getAmount()).replace(",", "."),
+                "currency", "RUB"
+            ));
+            body.put("capture", true);
+            body.put("description", "Оплата заказа №" + task.getOrderNumber());
+            body.put("confirmation", Map.of(
+                "type", "redirect",
+                "return_url", returnUrl + "?orderNumber=" + task.getOrderNumber()
+            ));
+            body.put("metadata", Map.of("order_id", task.getOrderNumber()));
 
-        log.info("YooKassa response status: {}", response.getStatusCode());
-        log.info("YooKassa response body: {}", response.getBody());
+            log.info("Sending request to YooKassa: {}", body);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
 
-        if (response.getStatusCode().is2xxSuccessful()) {
-            // ... (логика сохранения)
+            log.info("YooKassa response status: {}", response.getStatusCode());
+            log.info("YooKassa response body: {}", response.getBody());
 
+            if (response.getStatusCode().is2xxSuccessful()) {
                 Map responseBody = response.getBody();
                 String paymentId = (String) responseBody.get("id");
 

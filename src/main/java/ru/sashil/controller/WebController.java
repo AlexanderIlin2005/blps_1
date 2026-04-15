@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,8 +30,8 @@ public class WebController {
 
     @GetMapping("/accounting")
     public String accounting(Model model) {
-        model.addAttribute("ledger", ledgerEntryRepository.findAll());
-        model.addAttribute("documents", accountingDocumentRepository.findAll());
+        model.addAttribute("ledger", ledgerEntryRepository.findAll(Sort.by(Sort.Direction.DESC, "date")));
+        model.addAttribute("documents", accountingDocumentRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")));
         return "accounting";
     }
 

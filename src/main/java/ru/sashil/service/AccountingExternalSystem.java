@@ -48,13 +48,21 @@ public class AccountingExternalSystem {
                     .build();
             ledgerEntryRepository.save(entry2);
 
-            AccountingDocument doc = AccountingDocument.builder()
+            AccountingDocument invoice = AccountingDocument.builder()
                     .orderNumber(orderNumber)
                     .docType("Invoice")
                     .content("Invoice for order " + orderNumber + " total " + total)
                     .createdAt(LocalDateTime.now())
                     .build();
-            accountingDocumentRepository.save(doc);
+            accountingDocumentRepository.save(invoice);
+
+            AccountingDocument waybill = AccountingDocument.builder()
+                    .orderNumber(orderNumber)
+                    .docType("Waybill")
+                    .content("Waybill for order " + orderNumber + " total " + total)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            accountingDocumentRepository.save(waybill);
 
             log.info("Accounting records created for order: {}", orderNumber);
             return "ACK: Processed";
