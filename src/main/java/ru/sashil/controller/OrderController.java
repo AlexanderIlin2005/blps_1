@@ -61,7 +61,7 @@ public class OrderController {
     public String createOrder(
             @RequestParam("customerName") String customerName,
             @RequestParam("customerEmail") String customerEmail,
-            @RequestParam("customerPhone") String customerPhone,
+            @RequestParam(value = "customerPhone", required = false) String customerPhone,
             @RequestParam("deliveryType") String deliveryType,
             @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
             @RequestParam(value = "pickupPointId", required = false) String pickupPointId,
@@ -186,7 +186,7 @@ public class OrderController {
         public ResponseEntity<OrderResponse> createOrder(
                 @RequestParam("customerName") String customerName,
                 @RequestParam("customerEmail") String customerEmail,
-                @RequestParam("customerPhone") String customerPhone,
+                @RequestParam(value = "customerPhone", required = false) String customerPhone,
                 @RequestParam("deliveryType") String deliveryType,
                 @RequestParam(value = "deliveryAddress", required = false) String deliveryAddress,
                 @RequestParam("paymentMethod") String paymentMethod,
@@ -203,7 +203,6 @@ public class OrderController {
             request.setCustomerId(user.getId());
             request.setCustomerName(customerName);
             request.setCustomerEmail(customerEmail);
-            request.setCustomerPhone(customerPhone);
             request.setIdempotencyKey(idempotencyKey);
             request.setDeliveryType("COURIER".equals(deliveryType) ?
                 ru.sashil.model.DeliveryType.COURIER : ru.sashil.model.DeliveryType.PICKUP);
@@ -220,7 +219,9 @@ public class OrderController {
         @GetMapping("/{orderNumber}")
         public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNumber, Authentication auth) {
             User user = userService.findByUsername(auth.getName());
-            return ResponseEntity.ok(orderService.getOrderForUser(orderNumber, user.getId()));
+            OrderResponse response = orderService.getOrderForUser(orderNumber, user.getId());
+            log.info("API returning order status {} and url {}", response.getStatus(), response.getPaymentConfirmationUrl());
+            return ResponseEntity.ok(response);
         }
 
         @PostMapping("/{orderNumber}/payment")

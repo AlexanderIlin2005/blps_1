@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Панель Бухгалтера (MVP 1C)</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <style>
+        .accounting-container { max-width: 1200px; margin: 2rem auto; padding: 2rem; background: rgba(255,255,255,0.03); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; color: #ffffff; }
+        .data-table th, .data-table td { border: 1px solid rgba(255,255,255,0.1); padding: 1rem; text-align: left; }
+        .data-table th { background-color: rgba(227, 6, 19, 0.2); color: #e30613; }
+        .doc-card { border: 1px solid rgba(255,255,255,0.1); padding: 1.5rem; margin-bottom: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: #cccccc; }
+        h1, h2 { color: #ffffff; }
+        a { color: #e30613; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="accounting-container">
+        <h1>Панель Бухгалтера (MVP 1C)</h1>
+        <p><a href="/">← На главную</a></p>
+
+        <section>
+            <h2>Главная книга (Проводки)</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Заказ</th>
+                        <th>Дебет</th>
+                        <th>Кредит</th>
+                        <th>Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="entry : ${ledger}">
+                        <td th:text="${#temporals.format(entry.date, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${entry.orderNumber}"></td>
+                        <td th:text="${entry.accountDebit}"></td>
+                        <td th:text="${entry.accountCredit}"></td>
+                        <td th:text="${entry.amount + ' ₽'}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Реестр документов</h2>
+            <div th:each="doc : ${documents}" class="doc-card">
+                <strong th:text="${doc.docType + ' по заказу ' + doc.orderNumber}"></strong>
+                <div th:text="${'Дата: ' + #temporals.format(doc.createdAt, 'yyyy-MM-dd HH:mm')}"></div>
+                <hr>
+                <pre th:text="${doc.content}"></pre>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

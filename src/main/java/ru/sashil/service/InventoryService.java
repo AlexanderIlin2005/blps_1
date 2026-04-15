@@ -25,9 +25,14 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
     private final JmsTemplate jmsTemplate;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final StompSenderService stompSenderService;
 
     @Value("${fulfillment.queue.name}")
     private String fulfillmentQueueName;
+
+    @Value("${delivery.queue.name}")
+    private String deliveryQueueName;
 
     private OrderService orderService;
     private DeliveryService deliveryService;
@@ -73,49 +78,53 @@ public class InventoryService {
     public void executeFulfillment(FulfillmentTask task) {
         log.info("Executing fulfillment for order: {}", task.getOrderNumber());
 
-        try {
-            Order order = orderRepository.findById(task.getOrderId())
-                .orElseThrow(() -> new RuntimeException("Order not found: " + task.getOrderNumber()));
-
-            orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PROCESSING,
-                "Начата обработка заказа на складе (распределённая очередь)");
-
-            log.info("Checking stock for order: {}", order.getOrderNumber());
-            boolean allInStock = checkStockAndReserve(order);
-
-            if (allInStock) {
-                log.info("All items in stock for order: {}", order.getOrderNumber());
-
-                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PACKING,
-                    "Товары в наличии, начата сборка заказа");
-
-                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.READY_FOR_SHIPPING,
-                    "Заказ собран и упакован, готов к передаче в доставку");
-
-                log.info("Handing over to delivery service: {}", order.getOrderNumber());
-                deliveryService.handoverToDelivery(order);
-
-                log.info("Fulfillment completed for order: {}", order.getOrderNumber());
-            } else {
-                log.warn("Some items out of stock for order: {}", order.getOrderNumber());
-
-                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
-                    "Товара нет в наличии, заказ отменен");
-
-                notificationService.sendOutOfStockNotification(order);
-            }
-        } catch (Exception e) {
-            log.error("Error in fulfillment for order: {}", task.getOrderNumber(), e);
+        transactionTemplate.execute(status -> {
             try {
-                Order order = orderRepository.findById(task.getOrderId()).orElse(null);
-                if (order != null) {
+                Order order = orderRepository.findById(task.getOrderId())
+                    .orElseThrow(() -> new RuntimeException("Order not found: " + task.getOrderNumber()));
+
+                orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PROCESSING,
+                    "Начата обработка заказа на складе (распределённая очередь)");
+
+                log.info("Checking stock for order: {}", order.getOrderNumber());
+                boolean allInStock = checkStockAndReserve(order);
+
+                if (allInStock) {
+                    log.info("All items in stock for order: {}", order.getOrderNumber());
+
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.PACKING,
+                        "Товары в наличии, начата сборка заказа");
+
+                    orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.READY_FOR_SHIPPING,
+                        "Заказ собран и упакован, готов к передаче в доставку");
+
+                    log.info("Handing over to delivery service: {}", order.getOrderNumber());
+                    stompSenderService.sendToQueue(deliveryQueueName, "{\"orderNumber\":\"" + order.getOrderNumber() + "\",\"total\":" + order.getTotal() + "}");
+
+                    log.info("Fulfillment completed for order: {}", order.getOrderNumber());
+                } else {
+                    log.warn("Some items out of stock for order: {}", order.getOrderNumber());
+
                     orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
-                        "Ошибка при выполнении фулфилмента: " + e.getMessage());
+                        "Товара нет в наличии, заказ отменен");
+
+                    notificationService.sendOutOfStockNotification(order);
                 }
-            } catch (Exception ex) {
-                log.error("Failed to update order status after fulfillment error", ex);
+            } catch (Exception e) {
+                log.error("Error in fulfillment for order: {}", task.getOrderNumber(), e);
+                status.setRollbackOnly();
+                try {
+                    Order order = orderRepository.findById(task.getOrderId()).orElse(null);
+                    if (order != null) {
+                        orderService.updateOrderStatus(order.getOrderNumber(), OrderStatus.CANCELLED,
+                            "Ошибка при выполнении фулфилмента: " + e.getMessage());
+                    }
+                } catch (Exception ex) {
+                    log.error("Failed to update order status after fulfillment error", ex);
+                }
             }
-        }
+            return null;
+        });
     }
 
     private boolean checkStockAndReserve(Order order) {

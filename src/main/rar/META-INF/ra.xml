@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<connector xmlns="https://jakarta.ee/xml/ns/jakartaee"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/connector_2_1.xsd"
+           version="2.1">
+
+    <display-name>Accounting Resource Adapter</display-name>
+    <vendor-name>Sashil</vendor-name>
+    <eis-type>Accounting</eis-type>
+    <resourceadapter-version>1.0</resourceadapter-version>
+
+    <resourceadapter>
+        <outbound-resourceadapter>
+            <connection-definition>
+                <managedconnectionfactory-class>ru.sashil.jca.AccountingManagedConnectionFactory</managedconnectionfactory-class>
+                <connectionfactory-interface>jakarta.resource.cci.ConnectionFactory</connectionfactory-interface>
+                <connectionfactory-impl-class>ru.sashil.jca.AccountingConnectionFactoryImpl</connectionfactory-impl-class>
+                <connection-interface>jakarta.resource.cci.Connection</connection-interface>
+                <connection-impl-class>ru.sashil.jca.AccountingConnectionImpl</connection-impl-class>
+            </connection-definition>
+            <transaction-support>NoTransaction</transaction-support>
+            <reauthentication-support>false</reauthentication-support>
+        </outbound-resourceadapter>
+    </resourceadapter>
+</connector>

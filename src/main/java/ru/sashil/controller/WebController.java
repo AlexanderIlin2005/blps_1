@@ -19,10 +19,19 @@ public class WebController {
 
     private final UserService userService;
     private final ProductRepository productRepository;
+    private final ru.sashil.repository.LedgerEntryRepository ledgerEntryRepository;
+    private final ru.sashil.repository.AccountingDocumentRepository accountingDocumentRepository;
 
     @GetMapping("/")
     public String index() {
         return "index";
+    }
+
+    @GetMapping("/accounting")
+    public String accounting(Model model) {
+        model.addAttribute("ledger", ledgerEntryRepository.findAll());
+        model.addAttribute("documents", accountingDocumentRepository.findAll());
+        return "accounting";
     }
 
     @GetMapping("/catalog")

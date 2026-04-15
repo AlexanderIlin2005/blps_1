@@ -86,9 +86,15 @@
         function checkStatus() {
             if (!orderNumber) return;
             
+            console.log('Polling status for:', orderNumber);
             fetch(`/api/orders/${orderNumber}`)
-                .then(res => res.json())
+                .then(res => {
+                    console.log('Status check response:', res.status);
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    return res.json();
+                })
                 .then(order => {
+                    console.log('Order status received:', order.status);
                     const icon = document.getElementById('status-icon');
                     const title = document.getElementById('status-title');
                     const text = document.getElementById('status-text');
@@ -97,27 +103,8 @@
                     const manualPay = document.getElementById('manual-pay-container');
                     const manualBtn = document.getElementById('manual-pay-btn');
 
-
-                    if (order.status === 'PAYMENT_PROCESSING' || order.status === 'CHECKOUT') {
-                        if (order.paymentConfirmationUrl) {
-                            manualPay.style.display = 'block';
-                            manualBtn.href = order.paymentConfirmationUrl;
-                            text.textContent = 'Ожидаем оплату заказа. Если страница не открылась автоматически, нажмите на кнопку ниже.';
-                            
-
-                            if (flow === 'creation' && !hasAutoRedirected) {
-                                hasAutoRedirected = true;
-                                setTimeout(() => {
-                                    window.location.href = order.paymentConfirmationUrl;
-                                }, 1500);
-                            }
-                        } else {
-                            text.textContent = 'Генерируем ссылку на оплату в ЮKassa...';
-                        }
-                    }
-
-
-                    if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED' || order.status === 'COMPLETED') {
+                    if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'READY_FOR_SHIPPING' || order.status === 'SHIPPED' || order.status === 'DELIVERED' || order.status === 'COMPLETED') {
+                        console.log('Status is PAID/PROCESSING/READY_FOR_SHIPPING/SHIPPED/DELIVERED. Updating UI...');
                         icon.textContent = '✅';
                         title.textContent = 'Оплата принята!';
                         text.textContent = 'Ваш заказ успешно оплачен и уже передается на сборку. Спасибо за покупку!';
@@ -132,6 +119,22 @@
                         return;
                     } 
                     
+                    if (order.status === 'PAYMENT_PROCESSING' || order.status === 'CHECKOUT') {
+                        console.log('Still pending...');
+                        if (order.paymentConfirmationUrl) {
+                            manualPay.style.display = 'block';
+                            manualBtn.href = order.paymentConfirmationUrl;
+                            text.textContent = 'Ожидаем оплату заказа. Если страница не открылась автоматически, нажмите на кнопку ниже.';
+                            
+                            // Автоматический редирект, если это новая оплата
+                            if (flow === 'creation' && !hasAutoRedirected) {
+                                hasAutoRedirected = true;
+                                console.log('Redirecting to YooKassa...');
+                                window.location.href = order.paymentConfirmationUrl;
+                            }
+                        }
+                    }
+
                     if (order.status === 'CANCELLED') {
                         icon.textContent = '❌';
                         title.textContent = 'Заказ отменен';
@@ -142,19 +145,17 @@
                         return;
                     }
 
-
                     attempts++;
                     if (attempts < 100) {
                         setTimeout(checkStatus, 3000);
                     } else {
+                        text.textContent = 'Истекло время ожидания.';
                         loader.style.display = 'none';
-                        text.textContent = 'Проверка статуса занимает слишком много времени. Вы можете закрыть страницу и проверить статус в личном кабинете позже.';
-                        buttons.style.display = 'flex';
                     }
                 })
                 .catch(err => {
-                    console.error('Status check failed', err);
-                    setTimeout(checkStatus, 5000);
+                    console.error('Status check error:', err);
+                    setTimeout(checkStatus, 3000);
                 });
         }
 

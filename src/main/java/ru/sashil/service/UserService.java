@@ -33,14 +33,14 @@ public class UserService {
 
         return transactionTemplate.execute(status -> {
             if (userRepository.existsByUsername(registrationDTO.getUsername())) {
-                throw new RuntimeException("Username already exists");
+                throw new RuntimeException("Пользователь с таким логином уже существует");
             }
             if (userRepository.existsByEmail(registrationDTO.getEmail())) {
-                throw new RuntimeException("Email already exists");
+                throw new RuntimeException("Пользователь с таким email уже зарегистрирован");
             }
 
             if (!registrationDTO.getPassword().equals(registrationDTO.getConfirmPassword())) {
-                throw new RuntimeException("Passwords do not match");
+                throw new RuntimeException("Пароли не совпадают");
             }
 
             User user = new User();

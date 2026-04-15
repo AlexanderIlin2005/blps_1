@@ -33,6 +33,9 @@ public class DataInitializerService {
     @Autowired
     private TransactionTemplate transactionTemplate;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @PostConstruct
     public void initData() {
         log.info("Initializing sample data and security config using TransactionTemplate...");
@@ -73,7 +76,7 @@ public class DataInitializerService {
         if (userRepository.findByUsername("debug_user").isEmpty()) {
             ru.sashil.model.User debugUser = new ru.sashil.model.User();
             debugUser.setUsername("debug_user");
-            debugUser.setPassword("{noop}debug_pass");
+            debugUser.setPassword(passwordEncoder.encode("debug_pass"));
             debugUser.setEmail("debug@test.com");
             debugUser.setFullName("Debug User");
             debugUser.setRoles(new ArrayList<>(Collections.singletonList(customerRole)));

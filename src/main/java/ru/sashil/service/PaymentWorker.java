@@ -101,32 +101,36 @@ public class PaymentWorker {
             processTask(task);
         }
     }
+private void processTask(PaymentTask task) {
+    log.info("Starting processTask for order: {}", task.getOrderNumber());
+    try {
+        HttpHeaders headers = createAuthHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Idempotence-Key", UUID.randomUUID().toString());
 
-    private void processTask(PaymentTask task) {
-        try {
-            log.info("Processing YooKassa payment for order: {}", task.getOrderNumber());
+        Map<String, Object> body = new HashMap<>();
+        body.put("amount", Map.of(
+            "value", String.format("%.2f", task.getAmount()).replace(",", "."),
+            "currency", "RUB"
+        ));
+        body.put("capture", true);
+        body.put("description", "Оплата заказа №" + task.getOrderNumber());
+        body.put("confirmation", Map.of(
+            "type", "redirect",
+            "return_url", returnUrl + "?orderNumber=" + task.getOrderNumber()
+        ));
+        body.put("metadata", Map.of("order_id", task.getOrderNumber()));
 
-            HttpHeaders headers = createAuthHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Idempotence-Key", UUID.randomUUID().toString());
+        log.info("Sending request to YooKassa: {}", body);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("amount", Map.of(
-                "value", String.format("%.2f", task.getAmount()).replace(",", "."),
-                "currency", "RUB"
-            ));
-            body.put("capture", true);
-            body.put("description", "Оплата заказа №" + task.getOrderNumber());
-            body.put("confirmation", Map.of(
-                "type", "redirect",
-                "return_url", returnUrl + "?orderNumber=" + task.getOrderNumber()
-            ));
-            body.put("metadata", Map.of("order_id", task.getOrderNumber()));
+        log.info("YooKassa response status: {}", response.getStatusCode());
+        log.info("YooKassa response body: {}", response.getBody());
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(yooMoneyUrl, entity, Map.class);
+        if (response.getStatusCode().is2xxSuccessful()) {
+            // ... (логика сохранения)
 
-            if (response.getStatusCode().is2xxSuccessful()) {
                 Map responseBody = response.getBody();
                 String paymentId = (String) responseBody.get("id");
 
@@ -146,6 +150,7 @@ public class PaymentWorker {
             }
         } catch (Exception e) {
             log.error("Payment task failed for order {}: {}", task.getOrderNumber(), e.getMessage());
+            throw new RuntimeException("Payment processing failed", e);
         }
     }
 

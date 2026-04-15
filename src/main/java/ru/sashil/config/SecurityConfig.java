@@ -29,7 +29,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/products/**").permitAll()
-                .requestMatchers("/api/payments/webhook").permitAll()
+                .requestMatchers("/api/payments/webhook", "/api/orders/**").permitAll()
                 .requestMatchers("/api/users/register").permitAll()
                 .requestMatchers("/cart/**", "/js/**", "/css/**").permitAll()
                 .requestMatchers("/api/orders/**").authenticated() 
