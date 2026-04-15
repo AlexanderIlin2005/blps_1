@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ваш заказ доставлен!</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #ffffff; -webkit-font-smoothing: antialiased;">
+
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #1a1a1a; padding: 40px 10px;">
+        <tr>
+            <td align="center">
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #242424; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    
+                    <tr>
+                        <td align="center" style="background-color: #ff3b30; background-image: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%); padding: 40px 20px;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Ура! Заказ у вас 🎉</h1>
+                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">Статус заказа: <span style="background-color: #ffffff; color: #ff3b30; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; margin-left: 8px;">ВЫПОЛНЕН</span></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 40px 30px 20px 30px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #cccccc;">
+                                Здравствуйте, <span th:text="${order.customerName}">Клиент</span>!<br><br>
+                                Отличные новости: ваш заказ <span th:text="${order.orderNumber}">ORD-000</span> успешно доставлен. Мы были рады собрать его для вас и надеемся, что покупки принесут вам массу удовольствия!
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 0 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #2e2e2e; border-radius: 12px; padding: 20px;">
+                                <tr>
+                                    <td style="color: #888888; font-size: 14px; padding-bottom: 10px;">Дата создания:</td>
+                                    <td align="right" style="color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px;" th:text="${#temporals.format(order.createdAt, 'dd.MM.yyyy HH:mm')}"></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #888888; font-size: 14px; padding-bottom: 10px;">Способ доставки:</td>
+                                    <td align="right" style="color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px;" th:text="${order.deliveryType}"></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #888888; font-size: 14px; padding-bottom: 10px;">Статус оплаты:</td>
+                                    <td align="right" style="color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px;" th:text="${order.paymentStatus}"></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #888888; font-size: 14px;">Трек-номер:</td>
+                                    <td align="right" style="color: #ffffff; font-size: 14px; font-weight: bold;" th:text="${order.trackingNumber}"></td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 20px 30px 10px 30px;">
+                            <h2 style="margin: 0; color: #ffffff; font-size: 20px;">Состав заказа</h2>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 0 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #888888; font-size: 14px; padding-bottom: 10px; border-bottom: 1px solid #444444;">Товар</td>
+                                    <td align="center" style="color: #888888; font-size: 14px; padding-bottom: 10px; border-bottom: 1px solid #444444;">Кол-во</td>
+                                    <td align="right" style="color: #888888; font-size: 14px; padding-bottom: 10px; border-bottom: 1px solid #444444;">Сумма</td>
+                                </tr>
+                                
+                                <tr th:each="item : ${order.items}">
+                                    <td style="padding: 15px 0; border-bottom: 1px solid #333333; color: #ffffff; font-size: 16px;" th:text="${item.productName}"></td>
+                                    <td align="center" style="color: #cccccc; font-size: 16px; padding: 15px 0; border-bottom: 1px solid #333333;" th:text="${item.quantity}"></td>
+                                    <td align="right" style="color: #ffffff; font-size: 16px; font-weight: bold; padding: 15px 0; border-bottom: 1px solid #333333;" th:text="${#numbers.formatDecimal(item.price * item.quantity, 0, 0) + ' ₽'}"></td>
+                                </tr>
+
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="right" style="padding: 10px 30px 40px 30px;">
+                            <h2 style="margin: 0; color: #ff3b30; font-size: 24px;">Итого: <span th:text="${#numbers.formatDecimal(order.total, 0, 0) + ' ₽'}">0 ₽</span></h2>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center" style="background-color: #1a1a1a; padding: 30px;">
+                            <p style="margin: 0; color: #666666; font-size: 14px;">
+                                Спасибо, что выбираете нас! ❤️<br>
+                                Если у вас есть вопросы, просто ответьте на это письмо.
+                            </p>
+                            <p style="margin: 15px 0 0 0; color: #444444; font-size: 12px;">
+                                © 2026 ElectroGlass. Все права защищены.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
