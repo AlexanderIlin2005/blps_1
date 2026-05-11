@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -16,9 +17,13 @@ import ru.sashil.repository.OrderRepository;
 import ru.sashil.repository.OrderStatusHistoryRepository;
 import ru.sashil.repository.ProductRepository;
 import ru.sashil.repository.UserRepository;
+import ru.sashil.rules.RuleContext;
+import ru.sashil.rules.RuleEngine;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,6 +40,8 @@ public class OrderService {
     private final NotificationService notificationService;
     private final IdempotencyService idempotencyService;
     private final InventoryService inventoryService;
+    private final RuleEngine ruleEngine;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -55,6 +62,20 @@ public class OrderService {
 
             User user = userRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Increment order count for antifraud in Redis
+            String antifraudKey = "antifraud:user:" + user.getId() + ":orderCount";
+            redisTemplate.opsForValue().increment(antifraudKey, 1);
+            redisTemplate.expire(antifraudKey, Duration.ofHours(1));
+
+            // Create rule context and evaluate business rules
+            RuleContext ctx = new RuleContext(request, user, redisTemplate);
+            ruleEngine.evaluate(ctx);
+
+            if (ctx.isBlocked()) {
+                log.warn("Order creation blocked: {}", ctx.getBlockReason());
+                throw new RuntimeException(ctx.getBlockReason());
+            }
 
             List<OrderItem> orderItems = new ArrayList<>();
             double subtotal = 0;
@@ -81,6 +102,20 @@ public class OrderService {
                 subtotal += orderItem.getTotal();
             }
 
+            // Apply discount from rules
+            double discountAmount = 0;
+            List<String> appliedRules = new ArrayList<>();
+            if (ctx.getDiscountPercent() > 0) {
+                discountAmount = subtotal * ctx.getDiscountPercent() / 100.0;
+                appliedRules.add("Volume Discount " + ctx.getDiscountPercent() + "%");
+            }
+            if (ctx.isFreeShipping()) {
+                // free shipping not directly impacting total, but can be stored for display
+                appliedRules.add("Free Shipping Applied");
+            }
+
+            double total = subtotal - discountAmount;
+
             Order order = new Order();
             order.setOrderNumber(generateOrderNumber());
             order.setUser(user);
@@ -106,14 +141,17 @@ public class OrderService {
             }
 
             order.setSubtotal(subtotal);
-            order.setDiscount(0.0);
-            order.setTotal(subtotal);
+            order.setDiscount(discountAmount);
+            order.setTotal(total);
             order.setPaymentStatus(PaymentStatus.PENDING);
 
-            Order savedOrder = orderRepository.save(order);
-            addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Заказ создан");
+            // Store applied rules in metadata? We'll store in order response via mapToResponse
+            // For simplicity, we set discount amount.
 
-            log.info("Order created with number: {}", savedOrder.getOrderNumber());
+            Order savedOrder = orderRepository.save(order);
+            addStatusHistory(savedOrder, OrderStatus.CHECKOUT, "Order created");
+
+            log.info("Order created with number: {}, discount: {}", savedOrder.getOrderNumber(), discountAmount);
             return mapToResponse(savedOrder);
         });
     }
@@ -131,7 +169,7 @@ public class OrderService {
             orderRepository.save(o);
 
             addStatusHistory(o, OrderStatus.PAYMENT_PROCESSING,
-                "Обработка платежа методом: " + getPaymentMethodName(paymentMethod));
+                "Payment processing via method: " + getPaymentMethodName(paymentMethod));
             return o;
         });
 
@@ -146,22 +184,28 @@ public class OrderService {
             Order o = orderRepository.findByOrderNumber(orderNumber).get();
 
             if ("SUCCESS".equals(paymentResponse.getStatus())) {
-                finalizePayment(o, paymentResponse.getPaymentId(), true, "Оплата успешна");
+                // Evaluate post-payment rules (if any)
+                User user = o.getUser();
+                CreateOrderRequest fakeReq = new CreateOrderRequest();
+                fakeReq.setCustomerId(user.getId());
+                fakeReq.setItems(o.getItems().stream().map(i -> new CartItemDTO(i.getProductId(), i.getProductName(), i.getQuantity(), i.getPrice())).collect(Collectors.toList()));
+                RuleContext ctx = new RuleContext(fakeReq, user, redisTemplate);
+                ruleEngine.evaluate(ctx);
+                // Post-payment discount would not be applied again; just for logging or additional actions
+
+                finalizePayment(o, paymentResponse.getPaymentId(), true, "Payment successful");
             } else if ("PENDING".equals(paymentResponse.getStatus())) {
                 o.setPaymentId(paymentResponse.getPaymentId());
                 orderRepository.save(o);
                 addStatusHistory(o, OrderStatus.PAYMENT_PROCESSING,
-                    "Запрос на оплату отправлен в очередь (ЮKassa). Ожидайте подтверждения.");
+                    "Payment request sent to queue (Kassa). Waiting for confirmation.");
             } else if ("FAILED".equals(paymentResponse.getStatus())) {
-                finalizePayment(o, null, false, "Оплата не удалась: " + paymentResponse.getMessage());
+                finalizePayment(o, null, false, "Payment failed: " + paymentResponse.getMessage());
             }
             return mapToResponse(o);
         });
     }
 
-    /**
-     * Финализация платежа с запуском фулфилмента через очередь сообщений.
-     */
     public void finalizePayment(Order order, String paymentId, boolean success, String message) {
         transactionTemplate.execute(status -> {
             Order o = orderRepository.findById(order.getId()).get();
@@ -175,7 +219,6 @@ public class OrderService {
                 addStatusHistory(o, OrderStatus.PAID, message);
                 notificationService.sendOrderConfirmation(o);
 
-                // Запуск фулфилмента через распределённую очередь
                 log.info("Triggering fulfillment via queue for order: {}", o.getOrderNumber());
                 inventoryService.processFulfillment(o);
             } else {
@@ -201,8 +244,7 @@ public class OrderService {
 
             addStatusHistory(order, newStatus, description);
 
-            log.info("Order {} status changed: {} -> {} ({})",
-                orderNumber, oldStatus, newStatus, description);
+            log.info("Order {} status changed: {} -> {} ({})", orderNumber, oldStatus, newStatus, description);
             return null;
         });
     }
@@ -217,9 +259,7 @@ public class OrderService {
             order.setShippedAt(LocalDateTime.now());
             orderRepository.save(order);
 
-            addStatusHistory(order, OrderStatus.SHIPPED,
-                "Трек-номер сгенерирован: " + trackingNumber);
-
+            addStatusHistory(order, OrderStatus.SHIPPED, "Tracking generated: " + trackingNumber);
             notificationService.sendTrackingInfo(order);
             return null;
         });
@@ -234,8 +274,7 @@ public class OrderService {
             order.setDeliveredAt(LocalDateTime.now());
             orderRepository.save(order);
 
-            addStatusHistory(order, OrderStatus.COMPLETED,
-                "Заказ получен покупателем");
+            addStatusHistory(order, OrderStatus.COMPLETED, "Order delivered to customer");
             return null;
         });
     }
@@ -252,9 +291,7 @@ public class OrderService {
                 order.setCancelledAt(LocalDateTime.now());
                 orderRepository.save(order);
 
-                addStatusHistory(order, OrderStatus.CANCELLED,
-                    "Заказ отменен по таймауту оплаты (30 минут)");
-
+                addStatusHistory(order, OrderStatus.CANCELLED, "Cancelled due to payment timeout (30 min)");
                 notificationService.sendOrderCancelledNotification(order);
             }
             return null;
@@ -285,13 +322,9 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
             Long orderUserId = (order.getUser() != null) ? order.getUser().getId() : null;
-            log.info("Checking access for order {}: orderUserId={}, currentUserId={}",
-                orderNumber, orderUserId, userId);
-
             if (orderUserId != null && !orderUserId.equals(userId)) {
-                throw new RuntimeException("Access denied: This order belongs to another user (ID: " + orderUserId + ", yours: " + userId + ")");
+                throw new RuntimeException("Access denied: order belongs to another user");
             }
-
             return mapToResponse(order);
         });
     }
@@ -311,9 +344,9 @@ public class OrderService {
 
     private String getPaymentMethodName(String method) {
         switch (method) {
-            case "card": return "Банковская карта";
-            case "sbp": return "СБП";
-            case "installments": return "Рассрочка";
+            case "card": return "Bank card";
+            case "sbp": return "SBP";
+            case "installments": return "Installments";
             default: return method;
         }
     }
@@ -332,6 +365,7 @@ public class OrderService {
         response.setPaymentStatus(order.getPaymentStatus());
         response.setPaymentConfirmationUrl(order.getPaymentConfirmationUrl());
         response.setTrackingNumber(order.getTrackingNumber());
+        response.setDiscountApplied(order.getDiscount());
 
         List<CartItemDTO> items = order.getItems().stream()
             .map(item -> new CartItemDTO(

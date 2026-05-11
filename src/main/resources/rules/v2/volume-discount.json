@@ -1,0 +1,13 @@
+{
+  "name": "Volume Discount",
+  "description": "Applies 7% discount for orders over 80 000 RUB",
+  "priority": 10,
+  "condition": "order.getItems().stream().mapToDouble(item -> item.getPrice() * item.getQuantity()).sum() >= 80000",
+  "action": {
+    "handler": "discountActionHandler",
+    "params": {
+      "percent": 7,
+      "freeShipping": false
+    }
+  }
+}

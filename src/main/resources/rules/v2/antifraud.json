@@ -1,0 +1,12 @@
+{
+  "name": "AntiFraud Check",
+  "description": "Blocks order if user has made too many orders in the last hour (stricter)",
+  "priority": 1,
+  "condition": "redisTemplate.opsForValue().get('antifraud:user:' + user.getId() + ':orderCount') != null && (int) redisTemplate.opsForValue().get('antifraud:user:' + user.getId() + ':orderCount') >= 3",
+  "action": {
+    "handler": "blockActionHandler",
+    "params": {
+      "reason": "Too many orders in the last hour (limit 3)"
+    }
+  }
+}

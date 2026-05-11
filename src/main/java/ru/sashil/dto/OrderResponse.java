@@ -27,8 +27,8 @@ public class OrderResponse {
     private PaymentStatus paymentStatus;
     private String paymentConfirmationUrl;
     private String trackingNumber;
+    private Double discountApplied; // NEW
 
-    
     private List<StatusHistoryDTO> statusHistory;
 
     @Data

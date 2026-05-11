@@ -1,0 +1,13 @@
+{
+  "name": "Free Shipping Threshold",
+  "description": "Free shipping for orders over 30 000 RUB",
+  "priority": 11,
+  "condition": "order.getItems().stream().mapToDouble(item -> item.getPrice() * item.getQuantity()).sum() >= 30000",
+  "action": {
+    "handler": "discountActionHandler",
+    "params": {
+      "percent": 0,
+      "freeShipping": true
+    }
+  }
+}
