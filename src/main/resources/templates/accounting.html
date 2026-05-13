@@ -11,6 +11,9 @@
         .doc-card { border: 1px solid rgba(255,255,255,0.1); padding: 1.5rem; margin-bottom: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: #cccccc; }
         h1, h2 { color: #ffffff; }
         a { color: #e30613; text-decoration: none; }
+        .doc-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+        .doc-actions a { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1rem; border-radius: 10px; background: rgba(227, 6, 19, 0.12); border: 1px solid rgba(227, 6, 19, 0.28); }
+        .doc-meta { color: #9da3b5; font-size: 0.95rem; margin-top: 0.25rem; }
     </style>
 </head>
 <body>
@@ -45,10 +48,15 @@
         <section>
             <h2>Реестр документов</h2>
             <div th:each="doc : ${documents}" class="doc-card">
-                <strong th:text="${doc.docType + ' по заказу ' + doc.orderNumber}"></strong>
-                <div th:text="${'Дата: ' + #temporals.format(doc.createdAt, 'yyyy-MM-dd HH:mm')}"></div>
+                <strong th:text="${(doc.title != null ? doc.title : doc.docType) + ' по заказу ' + doc.orderNumber}"></strong>
+                <div class="doc-meta" th:text="${'Дата: ' + #temporals.format(doc.createdAt, 'yyyy-MM-dd HH:mm')}"></div>
+                <div class="doc-meta" th:text="${'Файл: ' + (doc.fileName != null ? doc.fileName : 'не загружен') + ' · ' + (doc.fileSize != null ? #numbers.formatDecimal(doc.fileSize / 1024.0, 0, 1) : '0') + ' КБ'}"></div>
                 <hr>
                 <pre th:text="${doc.content}"></pre>
+                <div class="doc-actions" th:if="${doc.objectKey != null}">
+                    <a th:href="@{/accounting/documents/{id}/view(id=${doc.id})}" target="_blank">Просмотреть PDF</a>
+                    <a th:href="@{/accounting/documents/{id}/download(id=${doc.id})}">Скачать PDF</a>
+                </div>
             </div>
         </section>
     </div>

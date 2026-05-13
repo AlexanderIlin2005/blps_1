@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        @page { size: A4; margin: 20mm 15mm; }
+        body { font-family: "DejaVu Sans", sans-serif; color: #111827; font-size: 12px; }
+        .page { border: 1px solid #d1d5db; padding: 18px; }
+        h1 { font-size: 20px; margin: 0 0 6px; }
+        .subtitle { margin-bottom: 16px; }
+        h2 { font-size: 13px; margin: 16px 0 8px; text-transform: uppercase; color: #991b1b; }
+        .grid { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .grid th, .grid td { border: 1px solid #d1d5db; padding: 8px; vertical-align: top; }
+        .grid th { background: #f3f4f6; text-align: left; }
+        .line { margin: 4px 0; }
+        .summary { margin-top: 12px; font-weight: 700; }
+        .signatures { margin-top: 26px; width: 100%; }
+        .signatures td { width: 50%; vertical-align: top; padding-right: 16px; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <h1>Товарная накладная № <span th:text="${invoiceNumber}"></span> от <span th:text="${invoiceDate}"></span></h1>
+    <div class="subtitle">К заказу № <span th:text="${orderNumber}"></span> от <span th:text="${orderDate}"></span></div>
+
+    <h2>Поставщик</h2>
+    <div class="line">Название: <strong th:text="${shopCompanyName}"></strong></div>
+    <div class="line">ИНН/ОГРН: <strong th:text="${shopInn + ' / ' + shopOgrn}"></strong></div>
+    <div class="line">Адрес: <strong th:text="${shopLegalAddress}"></strong></div>
+    <div class="line">Контакты: <strong th:text="${shopPhone + ', ' + shopEmail}"></strong></div>
+
+    <h2>Покупатель</h2>
+    <div class="line">ФИО: <strong th:text="${customerName}"></strong></div>
+    <div class="line">Телефон: <strong th:text="${customerPhone}"></strong></div>
+    <div class="line">Адрес: <strong th:text="${customerAddress}"></strong></div>
+
+    <h2>Список товаров и услуг</h2>
+    <table class="grid">
+        <thead>
+        <tr>
+            <th>№</th>
+            <th>Наименование товара</th>
+            <th>Кол-во</th>
+            <th>Цена за ед.</th>
+            <th>Сумма</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="item : ${items}">
+            <td th:text="${item.index}"></td>
+            <td th:text="${item.name}"></td>
+            <td th:text="${item.qty}"></td>
+            <td th:text="${item.price + ' ₽'}"></td>
+            <td th:text="${item.rowTotal + ' ₽'}"></td>
+        </tr>
+        <tr th:if="${showDeliveryRow}">
+            <td></td>
+            <td>Доставка</td>
+            <td>1</td>
+            <td th:text="${deliveryPrice + ' ₽'}"></td>
+            <td th:text="${deliveryPrice + ' ₽'}"></td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="summary">Итого к оплате: <span th:text="${totalOrderSum + ' ₽'}"></span></div>
+    <div class="line">В том числе НДС: <strong th:text="${vatSum}"></strong></div>
+    <div class="line">Всего отпущено наименований: <strong th:text="${totalLinesCount}"></strong>, на сумму <strong th:text="${totalOrderSum + ' руб.'}"></strong></div>
+    <div class="line">(<span th:text="${totalOrderSumInWords}"></span>).</div>
+
+    <h2>Условия передачи товара</h2>
+    <div class="line">Указанный товар получен полностью, в надлежащем качестве, претензий к внешнему виду и комплектации не имею.</div>
+
+    <table class="signatures">
+        <tr>
+            <td>
+                <strong>Отпустил (Продавец):</strong><br /><br />
+                ___________________ / <span th:text="${shopManager}"></span> /
+            </td>
+            <td>
+                <strong>Получил (Покупатель):</strong><br /><br />
+                ___________________ / <span th:text="${customerName}"></span> /
+            </td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 18px;">М.П. (при наличии)</div>
+</div>
+</body>
+</html>

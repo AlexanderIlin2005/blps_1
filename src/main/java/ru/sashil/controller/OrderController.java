@@ -13,6 +13,7 @@ import ru.sashil.dto.CreateOrderRequest;
 import ru.sashil.dto.OrderResponse;
 import ru.sashil.dto.PaymentRequest;
 import ru.sashil.model.User;
+import ru.sashil.repository.AccountingDocumentRepository;
 import ru.sashil.service.OrderService;
 import ru.sashil.service.UserService;
 
@@ -29,6 +30,7 @@ public class OrderController {
 
     private final OrderService orderService;
     private final UserService userService;
+    private final AccountingDocumentRepository accountingDocumentRepository;
 
     @GetMapping
     public String getUserOrders(Model model) {
@@ -54,6 +56,7 @@ public class OrderController {
         
         OrderResponse order = orderService.getOrderForUser(orderNumber, user.getId());
         model.addAttribute("order", order);
+        model.addAttribute("documents", accountingDocumentRepository.findByOrderNumberOrderByCreatedAtDesc(orderNumber));
         return "order-details";
     }
 

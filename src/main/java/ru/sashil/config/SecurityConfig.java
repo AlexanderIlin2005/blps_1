@@ -28,13 +28,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/products/**").permitAll()
-                .requestMatchers("/api/payments/webhook", "/api/orders/**").permitAll()
-                .requestMatchers("/api/users/register").permitAll()
-                .requestMatchers("/cart/**", "/js/**", "/css/**").permitAll()
-                .requestMatchers("/api/orders/**").authenticated() 
-                .requestMatchers("/profile/**", "/orders/**", "/checkout/**").authenticated()
-                .anyRequest().permitAll()
+                // Разрешить всем доступ к статическим ресурсам
+                .requestMatchers("/css/**", "/js/**", "/images/**", "/static/**").permitAll()
+                // Разрешить всем доступ к публичным страницам и API
+                .requestMatchers("/", "/login", "/register", "/catalog", "/product/**").permitAll()
+                .requestMatchers("/api/products/**", "/api/users/register", "/api/payments/webhook").permitAll()
+                // Все остальные запросы требуют аутентификации
+                .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults())
             .formLogin(form -> form

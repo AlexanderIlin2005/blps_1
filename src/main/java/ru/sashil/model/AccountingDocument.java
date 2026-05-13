@@ -25,6 +25,12 @@ public class AccountingDocument {
     
     private String orderNumber;
     private String docType;
+    private String title;
+    private String fileName;
+    private String storageBucket;
+    private String objectKey;
+    private String contentType;
+    private Long fileSize;
     private String content;
     private LocalDateTime createdAt;
 }
