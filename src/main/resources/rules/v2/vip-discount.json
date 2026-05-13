@@ -1,0 +1,12 @@
+{
+  "name": "VIP Discount",
+  "description": "15% discount for VIP users in v2",
+  "priority": 5,
+  "condition": "user.roles.stream().anyMatch(r -> r.name == 'ROLE_VIP')",
+  "action": {
+    "handler": "discountActionHandler",
+    "params": {
+      "percent": 15
+    }
+  }
+}

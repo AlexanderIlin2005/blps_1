@@ -1,0 +1,12 @@
+{
+  "name": "Order Limit",
+  "description": "Max 5 000 RUB for non-VIP users in v2",
+  "priority": 2,
+  "condition": "!user.roles.stream().anyMatch(r -> r.name == 'ROLE_VIP') && order.items.stream().mapToDouble(i -> i.price * i.quantity).sum() > 5000",
+  "action": {
+    "handler": "blockActionHandler",
+    "params": {
+      "reason": "Order amount exceeds limit for regular users (5 000 RUB) in v2"
+    }
+  }
+}

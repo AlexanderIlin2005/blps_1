@@ -1,0 +1,12 @@
+{
+  "name": "Flash Sale",
+  "description": "20% discount for 'FLASH' SKU in v2",
+  "priority": 6,
+  "condition": "T(java.time.LocalTime).now().getHour() >= 18 && T(java.time.LocalTime).now().getHour() < 20 && order.items.stream().anyMatch(i -> i.productId == 'FLASH')",
+  "action": {
+    "handler": "discountActionHandler",
+    "params": {
+      "percent": 20
+    }
+  }
+}
