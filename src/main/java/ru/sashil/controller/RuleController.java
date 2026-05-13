@@ -28,6 +28,11 @@ public class RuleController {
         return Map.of("activeVersion", versionService.getActiveVersion());
     }
 
+    @GetMapping("/versions")
+    public List<String> getAvailableVersions() {
+        return versionService.getAvailableVersions();
+    }
+
     @PutMapping("/version")
     public ResponseEntity<Map<String, String>> setVersion(@RequestParam("version") String version) {
         versionService.setActiveVersion(version);

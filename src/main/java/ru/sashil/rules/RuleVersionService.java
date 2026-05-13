@@ -3,6 +3,7 @@ package ru.sashil.rules;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 public class RuleVersionService {
@@ -20,6 +21,10 @@ public class RuleVersionService {
         Object val = redisTemplate.opsForValue().get(VERSION_KEY);
         if (val != null) return val.toString();
         return defaultVersion;
+    }
+
+    public List<String> getAvailableVersions() {
+        return List.of("v1", "v2");
     }
 
     public void setActiveVersion(String version) {

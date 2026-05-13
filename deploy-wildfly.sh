@@ -10,7 +10,7 @@ chmod +x gradlew
 ./gradlew clean build -x test
 
 # Extract the war filename
-WAR_FILE="build/libs/app.war"
+WAR_FILE="build/libs/mts-app.war"
 
 if [ ! -f "$WAR_FILE" ]; then
     echo "Build failed: WAR file not found!"
@@ -20,13 +20,13 @@ fi
 echo "Deploying to WildFly at ${DEPLOY_DIR}..."
 
 # Stop previous deployment
-rm -f "${DEPLOY_DIR}/app.war.deployed"
-rm -f "${DEPLOY_DIR}/app.war.failed"
+rm -f "${DEPLOY_DIR}/mts-app.war.deployed"
+rm -f "${DEPLOY_DIR}/mts-app.war.failed"
 
 # Copy the new WAR
-cp "$WAR_FILE" "${DEPLOY_DIR}/app.war"
+cp "$WAR_FILE" "${DEPLOY_DIR}/mts-app.war"
 
 # Trigger deployment
-touch "${DEPLOY_DIR}/app.war.dodeploy"
+touch "${DEPLOY_DIR}/mts-app.war.dodeploy"
 
 echo "Deployment triggered. Check WildFly logs for progress."

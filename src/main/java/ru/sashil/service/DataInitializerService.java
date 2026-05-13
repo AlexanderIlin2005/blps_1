@@ -57,6 +57,7 @@ public class DataInitializerService {
 
         List<Privilege> customerPrivileges = Arrays.asList(readCatalog, createOrder, readOwnOrders, cancelOwnOrder);
         Role customerRole = createRoleIfNotFound("ROLE_CUSTOMER", customerPrivileges);
+        Role vipRole = createRoleIfNotFound("ROLE_VIP", customerPrivileges);
 
         List<Privilege> managerPrivileges = Arrays.asList(readCatalog, createOrder, readOwnOrders, cancelOwnOrder, readAllOrders, updateOrderStatus);
         createRoleIfNotFound("ROLE_MANAGER", managerPrivileges);
@@ -114,7 +115,8 @@ public class DataInitializerService {
             createProduct("KEYCHRON-Q1", "Keychron Q1 Pro", "Mechanical Custom Keyboard", 18500.0, "Периферия", "⌨️"),
             createProduct("LOGI-MX-MASTER", "Logitech MX Master 3S", "Ergonomic Productivity Mouse", 12990.0, "Периферия", "🖱️"),
             createProduct("SAMSUNG-S24-ULTRA", "Samsung S24 Ultra", "AI Camera, S-Pen included", 124990.0, "Смартфоны", "📱"),
-            createProduct("DYSON-V15", "Dyson V15 Detect", "Cordless Vacuum Cleaner", 79990.0, "Дом", "🧹")
+            createProduct("DYSON-V15", "Dyson V15 Detect", "Cordless Vacuum Cleaner", 79990.0, "Дом", "🧹"),
+            createProduct("FLASH", "Special Flash Sale Product", "Only for limited time", 5000.0, "Sale", "⚡")
         );
         productRepository.saveAll(products);
         log.info("Products synchronized with emojis");
